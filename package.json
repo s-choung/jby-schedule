@@ -1,0 +1,11 @@
+{
+  "name": "jby-schedule",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "check": "node --check scheduler-core.js && node --check app.js",
+    "serve": "python3 -m http.server 5173"
+  }
+}

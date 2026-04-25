@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Todos Weekly Schedule</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <aside class="sidebar" aria-label="자유 블록 영역과 편집 패널">
+        <header class="brand-row">
+          <div>
+            <p class="eyebrow">todos</p>
+            <h1>주간 스케줄 보드</h1>
+          </div>
+          <button id="addBlockBtn" class="primary-btn" type="button">블록 추가</button>
+        </header>
+
+        <section class="panel presets-panel" aria-labelledby="presetTitle">
+          <div class="panel-title-row">
+            <h2 id="presetTitle">빠른 블록</h2>
+            <span class="hint">클릭해서 왼쪽에 생성</span>
+          </div>
+          <div id="presetList" class="preset-list"></div>
+        </section>
+
+        <section class="palette-wrap" aria-labelledby="paletteTitle">
+          <div class="panel-title-row floating-title">
+            <h2 id="paletteTitle">자유 영역</h2>
+            <span class="hint">오른쪽으로 드래그</span>
+          </div>
+          <div id="paletteCanvas" class="palette-canvas" aria-label="자유롭게 블록을 배치하는 영역"></div>
+        </section>
+
+        <section class="panel editor-panel" aria-labelledby="editorTitle">
+          <div class="panel-title-row">
+            <h2 id="editorTitle">선택 블록 편집</h2>
+            <button id="deleteBlockBtn" class="ghost-btn danger" type="button">삭제</button>
+          </div>
+
+          <label class="field full">
+            <span>이름</span>
+            <input id="titleInput" type="text" placeholder="블록을 선택하세요" />
+          </label>
+
+          <div class="field-grid">
+            <label class="field">
+              <span>배경</span>
+              <input id="colorInput" type="color" />
+            </label>
+            <label class="field">
+              <span>글자</span>
+              <input id="textColorInput" type="color" />
+            </label>
+            <label class="field">
+              <span>테두리</span>
+              <input id="borderColorInput" type="color" />
+            </label>
+            <label class="field">
+              <span>둥글기</span>
+              <input id="radiusInput" type="range" min="0" max="32" step="1" />
+            </label>
+          </div>
+
+          <div class="field-grid">
+            <label class="field">
+              <span>패턴</span>
+              <select id="patternInput">
+                <option value="none">없음</option>
+                <option value="stripe">빗금</option>
+                <option value="cross">격자</option>
+                <option value="soft">연한색</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>테두리</span>
+              <select id="borderStyleInput">
+                <option value="solid">실선</option>
+                <option value="dashed">점선</option>
+                <option value="dotted">도트</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>너비</span>
+              <input id="widthInput" type="number" min="56" step="4" />
+            </label>
+            <label class="field">
+              <span>높이</span>
+              <input id="heightInput" type="number" min="28" step="4" />
+            </label>
+          </div>
+        </section>
+      </aside>
+
+      <section class="schedule-section" aria-label="주간 스케줄 영역">
+        <div class="toolbar">
+          <div class="date-controls" aria-label="날짜 이동">
+            <button id="prevWeekBtn" class="ghost-btn" type="button">이전 주</button>
+            <label class="date-field">
+              <span>기준 날짜</span>
+              <input id="dateInput" type="date" />
+            </label>
+            <button id="todayBtn" class="ghost-btn" type="button">오늘</button>
+            <button id="nextWeekBtn" class="ghost-btn" type="button">다음 주</button>
+          </div>
+          <div class="save-controls" aria-label="저장과 가져오기">
+            <button id="folderBtn" class="ghost-btn" type="button">저장 폴더 선택</button>
+            <button id="exportBtn" class="ghost-btn" type="button">JSON 내보내기</button>
+            <label class="ghost-btn file-label">
+              JSON 가져오기
+              <input id="importInput" type="file" accept="application/json,.json" />
+            </label>
+          </div>
+        </div>
+
+        <div class="title-line">
+          <div>
+            <p class="eyebrow">weekly planner</p>
+            <h2 id="weekTitle">주간 스케줄</h2>
+          </div>
+          <p id="saveStatus" class="save-status" aria-live="polite">준비됨</p>
+        </div>
+
+        <div class="board-shell">
+          <div class="corner-cell">시간</div>
+          <div id="dayHeader" class="day-header"></div>
+          <div id="timeRail" class="time-rail"></div>
+          <div id="scheduleBoard" class="schedule-board" aria-label="월요일부터 일요일까지의 스케줄 보드">
+            <div class="board-grid-lines" aria-hidden="true"></div>
+            <div id="scheduleLayer" class="schedule-layer"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <template id="blockTemplate">
+      <article class="block-card" tabindex="0">
+        <div class="block-title" contenteditable="true" spellcheck="false"></div>
+        <div class="block-meta"></div>
+      </article>
+    </template>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
