@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>Todos Weekly Schedule</title>
+<style>
+:root {
+  --paper:#fffdf7; --ink:#171717; --muted:#6b7280; --line:#1f2937;
+  --grid-line:rgba(31,41,55,.16); --soft-blue:#a7d3f5; --soft-pink:#f8c6c6;
+  --soft-green:#c5f4c7; --soft-yellow:#ffefa7; --board-h:900px;
+  --rail-w:36px; --bar-h:56px; --safe-b:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden}
+body{
+  background:linear-gradient(180deg,#fffefb,#f7f4ee);
+  color:var(--ink);
+  font-family:"Comic Sans MS","Apple SD Gothic Neo","Pretendard",system-ui,sans-serif;
+  display:flex;flex-direction:column;
+}
+button,input,select{font:inherit}
+button{
+  border:2px solid var(--line);border-radius:14px;background:#fff;color:var(--ink);
+  cursor:pointer;box-shadow:2px 3px 0 rgba(17,24,39,.9);
+  transition:transform .12s,box-shadow .12s;
+  min-height:36px;padding:0 12px;font-weight:700;
+}
+button:active{transform:translate(1px,1px);box-shadow:1px 1px 0 rgba(17,24,39,.9)}
+
+/* ── top bar ── */
+.top-bar{
+  flex-shrink:0;padding:8px 12px;
+  background:rgba(255,255,255,.85);backdrop-filter:blur(8px);
+  border-bottom:2px solid var(--line);z-index:60;
+}
+.brand-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.eyebrow{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#374151}
+.top-bar h1{font-size:1.15rem;line-height:1.1}
+.date-nav{display:flex;align-items:center;gap:6px;justify-content:center}
+.date-nav button{min-height:32px;padding:0 10px;font-size:.82rem}
+.week-title{font-size:.88rem;font-weight:900;min-width:120px;text-align:center}
+
+/* ── board area ── */
+.board-scroll{flex:1;overflow:auto;-webkit-overflow-scrolling:touch}
+.board-shell{
+  display:grid;
+  grid-template-columns:var(--rail-w) 1fr;
+  grid-template-rows:40px var(--board-h);
+  border-bottom:2px solid var(--line);
+}
+.corner-cell{
+  display:grid;place-items:center;
+  border-right:2px solid var(--line);border-bottom:2px solid var(--line);
+  background:#fff7d6;font-weight:900;font-size:.7rem;
+}
+.day-header{
+  display:grid;grid-template-columns:repeat(7,1fr);
+  border-bottom:2px solid var(--line);background:#fffdf7;
+}
+.day-cell{
+  display:grid;place-items:center;gap:1px;
+  border-right:1px solid rgba(31,41,55,.5);font-weight:900;
+  padding:2px 0;
+}
+.day-cell:last-child{border-right:0}
+.day-cell .dl{font-size:.78rem}
+.day-cell .wl{font-size:.68rem;color:#374151}
+.day-cell.is-today{background:#fff0ad}
+.time-rail{
+  position:relative;border-right:2px solid var(--line);background:#fffdf7;
+}
+.time-label{
+  position:absolute;right:4px;
+  transform:translateY(-50%);
+  font-size:.65rem;font-weight:900;color:#111827;
+  background:#fffdf7;padding:0 3px;border-radius:4px;
+  white-space:nowrap;
+}
+.schedule-board{position:relative;overflow:hidden;background:#fefefe}
+.board-grid-lines,.schedule-layer{position:absolute;inset:0}
+.board-grid-lines{
+  background:
+    repeating-linear-gradient(to bottom,transparent 0,transparent 49px,var(--grid-line) 50px),
+    linear-gradient(to right,transparent calc(100% - 1px),rgba(31,41,55,.7) calc(100% - 1px)) 0 0/calc(100%/7) 100%;
+  pointer-events:none;
+}
+.schedule-layer{z-index:1}
+
+/* ── block cards ── */
+.block-card{
+  position:absolute;display:grid;place-items:center;
+  min-width:40px;min-height:24px;padding:4px 6px;
+  border:2px solid var(--line);border-radius:16px;
+  background:var(--soft-blue);color:var(--ink);
+  cursor:grab;user-select:none;touch-action:none;
+  box-shadow:2px 3px 0 rgba(17,24,39,.9);
+  transition:box-shadow .1s,filter .1s;
+  z-index:2;
+}
+.block-card.is-selected{
+  outline:3px solid rgba(79,70,229,.45);outline-offset:2px;z-index:20;
+}
+.block-card.is-dragging{
+  cursor:grabbing;opacity:.85;z-index:50;
+  box-shadow:4px 6px 0 rgba(17,24,39,.9);
+}
+.block-card.pattern-stripe{
+  background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.68) 0 4px,transparent 4px 10px);
+}
+.block-card.pattern-cross{
+  background-image:
+    repeating-linear-gradient(45deg,rgba(255,255,255,.6) 0 2px,transparent 2px 9px),
+    repeating-linear-gradient(-45deg,rgba(255,255,255,.6) 0 2px,transparent 2px 9px);
+}
+.block-card.pattern-soft{opacity:.76}
+.block-title{
+  width:100%;text-align:center;font-weight:800;
+  line-height:1.2;word-break:keep-all;white-space:pre-wrap;
+  font-size:.72rem;overflow:hidden;
+}
+.block-meta{font-size:.6rem;font-weight:700;opacity:.6;margin-top:1px}
+
+/* resize handles (N/S only on mobile) */
+.resize-n,.resize-s{
+  position:absolute;left:10%;right:10%;height:14px;z-index:5;
+  border-radius:999px;background:rgba(79,70,229,.25);
+  opacity:0;transition:opacity .15s;
+}
+.block-card.is-selected .resize-n,
+.block-card.is-selected .resize-s{opacity:1}
+.resize-n{top:-7px;cursor:ns-resize}
+.resize-s{bottom:-7px;cursor:ns-resize}
+
+/* ── bottom bar ── */
+.bottom-bar{
+  flex-shrink:0;display:flex;align-items:center;justify-content:space-around;
+  gap:8px;padding:6px 10px;
+  padding-bottom:max(6px,var(--safe-b));
+  background:rgba(255,255,255,.9);backdrop-filter:blur(8px);
+  border-top:2px solid var(--line);z-index:60;
+}
+.bottom-bar button{flex:1;max-width:120px;font-size:.78rem;min-height:38px}
+.btn-add{background:var(--soft-yellow)}
+.btn-danger{background:#ffe5e5;color:#991b1b}
+
+/* ── backdrop ── */
+.backdrop{
+  position:fixed;inset:0;z-index:100;
+  background:rgba(0,0,0,.35);
+  opacity:0;visibility:hidden;
+  transition:opacity .25s,visibility .25s;
+}
+.backdrop.visible{opacity:1;visibility:visible}
+
+/* ── bottom sheet (editor) ── */
+.bottom-sheet{
+  position:fixed;bottom:0;left:0;right:0;z-index:120;
+  background:#fff;border-radius:20px 20px 0 0;
+  box-shadow:0 -4px 24px rgba(0,0,0,.15);
+  transform:translateY(100%);
+  transition:transform .3s cubic-bezier(.4,0,.2,1);
+  padding:0 16px 16px;
+  padding-bottom:max(16px,var(--safe-b));
+  max-height:55vh;overflow-y:auto;
+}
+.bottom-sheet.visible{transform:translateY(0)}
+.sheet-handle{
+  width:40px;height:4px;border-radius:2px;background:#ccc;
+  margin:8px auto 6px;
+}
+.sheet-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.sheet-header h3{font-size:1rem}
+.sheet-actions{display:flex;gap:8px}
+.sheet-actions button{min-height:32px;font-size:.78rem}
+.field{display:grid;gap:4px;font-size:.78rem;font-weight:700;color:#374151}
+.field+.field{margin-top:10px}
+.field input,.field select{
+  width:100%;min-height:34px;border:2px solid rgba(31,41,55,.6);
+  border-radius:10px;background:#fff;color:var(--ink);padding:4px 8px;
+}
+input[type=color]{padding:2px;height:34px}
+input[type=range]{padding:0}
+.field-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(80px,1fr));gap:10px;margin-top:10px}
+
+/* ── modal overlay ── */
+.overlay{
+  position:fixed;inset:0;z-index:140;
+  display:flex;align-items:flex-end;justify-content:center;
+  background:rgba(0,0,0,.4);
+  opacity:0;visibility:hidden;
+  transition:opacity .25s,visibility .25s;
+}
+.overlay.visible{opacity:1;visibility:visible}
+.modal{
+  width:100%;max-width:420px;max-height:70vh;overflow-y:auto;
+  background:#fff;border-radius:20px 20px 0 0;
+  padding:16px;padding-bottom:max(16px,var(--safe-b));
+  transform:translateY(20px);transition:transform .25s;
+}
+.overlay.visible .modal{transform:translateY(0)}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.modal-header h3{font-size:1rem;font-weight:900}
+.preset-grid{display:flex;flex-wrap:wrap;gap:8px}
+.preset-chip{
+  padding:8px 12px;border-radius:12px;font-size:.8rem;
+  min-height:36px;
+}
+.menu-list{display:flex;flex-direction:column;gap:8px}
+.menu-item{
+  display:flex;align-items:center;justify-content:center;
+  width:100%;min-height:44px;font-size:.88rem;
+}
+.file-label{
+  display:flex;align-items:center;justify-content:center;
+  border:2px solid var(--line);border-radius:14px;background:#fff;
+  font-weight:700;cursor:pointer;
+  box-shadow:2px 3px 0 rgba(17,24,39,.9);
+}
+.file-label input{display:none}
+
+/* ── palette drawer ── */
+.palette-drawer{
+  position:fixed;bottom:0;left:0;right:0;z-index:120;
+  background:#fff;border-radius:20px 20px 0 0;
+  box-shadow:0 -4px 24px rgba(0,0,0,.15);
+  transform:translateY(100%);
+  transition:transform .3s cubic-bezier(.4,0,.2,1);
+  padding:0 12px 12px;
+  padding-bottom:max(12px,var(--safe-b));
+  height:55vh;display:flex;flex-direction:column;
+}
+.palette-drawer.visible{transform:translateY(0)}
+.palette-canvas{
+  flex:1;position:relative;overflow:hidden;
+  border:2px dashed rgba(31,41,55,.3);border-radius:16px;
+  background:
+    linear-gradient(rgba(31,41,55,.04) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,41,55,.04) 1px,transparent 1px),
+    rgba(255,255,255,.5);
+  background-size:20px 20px;
+  touch-action:none;
+}
+.palette-header{display:flex;align-items:center;justify-content:space-between;padding:10px 4px 8px}
+.palette-header h3{font-size:.95rem;font-weight:900}
+
+/* ── save status ── */
+.save-status{
+  font-size:.68rem;color:var(--muted);text-align:center;
+  padding:2px 0;flex-shrink:0;
+}
+
+/* body drag lock */
+body.dragging{overflow:hidden!important}
+body.dragging .board-scroll{overflow:hidden!important}
+</style>
+</head>
+<body>
+
+<header class="top-bar">
+  <div class="brand-row">
+    <div>
+      <p class="eyebrow">todos</p>
+      <h1>주간 스케줄</h1>
+    </div>
+    <p id="saveStatus" class="save-status">준비됨</p>
+  </div>
+  <div class="date-nav">
+    <button id="prevWeekBtn">◀</button>
+    <button id="todayBtn">오늘</button>
+    <span id="weekTitle" class="week-title"></span>
+    <button id="nextWeekBtn">▶</button>
+  </div>
+</header>
+
+<div class="board-scroll" id="boardScroll">
+  <div class="board-shell">
+    <div class="corner-cell">시간</div>
+    <div id="dayHeader" class="day-header"></div>
+    <div id="timeRail" class="time-rail"></div>
+    <div id="scheduleBoard" class="schedule-board">
+      <div class="board-grid-lines"></div>
+      <div id="scheduleLayer" class="schedule-layer"></div>
+    </div>
+  </div>
+</div>
+
+<nav class="bottom-bar">
+  <button id="addBlockBtn" class="btn-add">+ 블록</button>
+  <button id="presetsBtn">프리셋</button>
+  <button id="paletteBtn">자유 영역</button>
+  <button id="menuBtn">⋯</button>
+</nav>
+
+<div id="backdrop" class="backdrop"></div>
+
+<!-- editor sheet -->
+<div id="editorSheet" class="bottom-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header">
+    <h3>블록 편집</h3>
+    <div class="sheet-actions">
+      <button id="deleteBlockBtn" class="btn-danger">삭제</button>
+      <button id="closeSheetBtn">✕</button>
+    </div>
+  </div>
+  <div class="sheet-body">
+    <div class="field">
+      <span>이름</span>
+      <input id="titleInput" type="text" placeholder="블록 이름">
+    </div>
+    <div class="field-row">
+      <div class="field"><span>배경</span><input id="colorInput" type="color"></div>
+      <div class="field"><span>글자</span><input id="textColorInput" type="color"></div>
+      <div class="field"><span>테두리색</span><input id="borderColorInput" type="color"></div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <span>패턴</span>
+        <select id="patternInput">
+          <option value="none">없음</option>
+          <option value="stripe">빗금</option>
+          <option value="cross">격자</option>
+          <option value="soft">연한</option>
+        </select>
+      </div>
+      <div class="field">
+        <span>테두리</span>
+        <select id="borderStyleInput">
+          <option value="solid">실선</option>
+          <option value="dashed">점선</option>
+          <option value="dotted">도트</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field"><span>둥글기</span><input id="radiusInput" type="range" min="0" max="32" step="1"></div>
+    </div>
+  </div>
+</div>
+
+<!-- presets modal -->
+<div id="presetsOverlay" class="overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>빠른 블록 추가</h3>
+      <button id="closePresetsBtn">✕</button>
+    </div>
+    <div id="presetList" class="preset-grid"></div>
+  </div>
+</div>
+
+<!-- menu modal -->
+<div id="menuOverlay" class="overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>메뉴</h3>
+      <button id="closeMenuBtn">✕</button>
+    </div>
+    <div class="menu-list">
+      <button id="exportBtn" class="menu-item">JSON 내보내기</button>
+      <label class="menu-item file-label">
+        JSON 가져오기
+        <input id="importInput" type="file" accept="application/json,.json">
+      </label>
+    </div>
+  </div>
+</div>
+
+<!-- palette drawer -->
+<div id="paletteDrawer" class="palette-drawer">
+  <div class="sheet-handle"></div>
+  <div class="palette-header">
+    <h3>자유 영역</h3>
+    <button id="closePaletteBtn">✕</button>
+  </div>
+  <div id="paletteCanvas" class="palette-canvas"></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// Core
+// ═══════════════════════════════════════════════════════
+const WEEKDAYS = ['월','화','수','목','금','토','일'];
+const START_MIN = 360, END_MIN = 1440, BH = 900;
+const INSET = 4, STORAGE = 'jby-schedule:';
+
+function clamp(v, lo, hi) { return Math.min(Math.max(Number(v), lo), hi); }
+
+function toISO(d = new Date()) {
+  const dt = d instanceof Date ? d : new Date(d + 'T00:00:00');
+  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+}
+function parseDate(s) {
+  if (s instanceof Date) return new Date(s.getFullYear(), s.getMonth(), s.getDate());
+  const [y,m,d] = String(s).slice(0,10).split('-').map(Number);
+  return new Date(y, m-1, d);
+}
+function addDays(s, n) { const d = parseDate(s); d.setDate(d.getDate()+n); return d; }
+function weekStart(s = new Date()) {
+  const d = parseDate(s), day = d.getDay();
+  return addDays(d, day === 0 ? -6 : 1 - day);
+}
+function weekDays(s = new Date()) {
+  const mon = weekStart(s);
+  return WEEKDAYS.map((w, i) => {
+    const d = addDays(mon, i);
+    return { weekday: w, iso: toISO(d), label: `${d.getMonth()+1}/${d.getDate()}` };
+  });
+}
+function minToY(m, h = BH) { return ((m - START_MIN) / (END_MIN - START_MIN)) * h; }
+function yToMin(y, h = BH, snap = 30) {
+  const raw = START_MIN + (Number(y) / h) * (END_MIN - START_MIN);
+  return clamp(Math.round(raw / snap) * snap, START_MIN, END_MIN);
+}
+function timeFmt(m) { const h = Math.floor(m/60), mm = m%60; return mm === 0 ? h+':00' : h+':'+String(mm).padStart(2,'0'); }
+function hourMarks() { return Array.from({length:19},(_,i)=>i+6); }
+
+function mkBlock(o = {}) {
+  return {
+    id: o.id || 'b_'+Math.random().toString(36).slice(2,10),
+    title:'새 일정', area:'schedule', day:0, daySpan:1,
+    x:0, y:0, width:100, height:50,
+    color:'#a7d3f5', textColor:'#111827', borderColor:'#111827',
+    borderStyle:'solid', pattern:'none', radius:16,
+    startMinutes:START_MIN, endMinutes:START_MIN+60,
+    ...o,
+  };
+}
+
+function snapBlock(b, bw, bh = BH) {
+  const dw = bw / 7;
+  const span = clamp(Math.round((b.width || dw) / dw), 1, 7);
+  const day = clamp(Math.floor((b.x || 0) / dw), 0, 7 - span);
+  const sm = yToMin(b.y || 0, bh);
+  const em = Math.max(sm + 30, yToMin((b.y||0) + (b.height||28), bh));
+  return { ...b, area:'schedule', day, daySpan:span, startMinutes:sm, endMinutes:em };
+}
+
+function blockPixels(b, bw, bh = BH) {
+  const dw = bw / 7;
+  return {
+    x: b.day * dw + INSET,
+    y: minToY(b.startMinutes, bh),
+    width: b.daySpan * dw - INSET * 2,
+    height: Math.max(24, minToY(b.endMinutes, bh) - minToY(b.startMinutes, bh)),
+  };
+}
+
+// ═══════════════════════════════════════════════════════
+// Presets
+// ═══════════════════════════════════════════════════════
+const PRESETS = [
+  {title:'성인스터디',color:'#a7d3f5',width:148,height:72},
+  {title:'밴드',color:'#a7d3f5',width:148,height:72},
+  {title:'연애',color:'#a7d3f5',width:136,height:88},
+  {title:'청담동 사장님',color:'#f8c6c6',width:128,height:72},
+  {title:'안강병원 남음',color:'#c5f4c7',width:150,height:210},
+  {title:'안강병원 격주',color:'#d9ffd9',pattern:'cross',width:116,height:144},
+  {title:'출퇴근',color:'#e9eef5',width:280,height:34},
+  {title:'꿀잠',color:'#ffefa7',width:340,height:34},
+  {title:'운동',color:'#a7d3f5',width:104,height:42},
+  {title:'영어공부',color:'#a7d3f5',width:112,height:42},
+  {title:'스터디준비',color:'#a7d3f5',width:118,height:42},
+  {title:'후보 메모',color:'#ffffff',pattern:'stripe',borderColor:'#ef4444',width:150,height:92},
+];
+
+// ═══════════════════════════════════════════════════════
+// DOM
+// ═══════════════════════════════════════════════════════
+const $ = s => document.querySelector(s);
+const el = {
+  saveStatus: $('#saveStatus'), weekTitle: $('#weekTitle'),
+  dayHeader: $('#dayHeader'), timeRail: $('#timeRail'),
+  scheduleBoard: $('#scheduleBoard'), scheduleLayer: $('#scheduleLayer'),
+  boardScroll: $('#boardScroll'),
+  addBlockBtn: $('#addBlockBtn'), presetsBtn: $('#presetsBtn'),
+  paletteBtn: $('#paletteBtn'), menuBtn: $('#menuBtn'),
+  backdrop: $('#backdrop'),
+  editorSheet: $('#editorSheet'), closeSheetBtn: $('#closeSheetBtn'),
+  deleteBlockBtn: $('#deleteBlockBtn'),
+  titleInput: $('#titleInput'), colorInput: $('#colorInput'),
+  textColorInput: $('#textColorInput'), borderColorInput: $('#borderColorInput'),
+  radiusInput: $('#radiusInput'), patternInput: $('#patternInput'),
+  borderStyleInput: $('#borderStyleInput'),
+  presetsOverlay: $('#presetsOverlay'), closePresetsBtn: $('#closePresetsBtn'),
+  presetList: $('#presetList'),
+  menuOverlay: $('#menuOverlay'), closeMenuBtn: $('#closeMenuBtn'),
+  exportBtn: $('#exportBtn'), importInput: $('#importInput'),
+  paletteDrawer: $('#paletteDrawer'), closePaletteBtn: $('#closePaletteBtn'),
+  paletteCanvas: $('#paletteCanvas'),
+  prevWeekBtn: $('#prevWeekBtn'), nextWeekBtn: $('#nextWeekBtn'),
+  todayBtn: $('#todayBtn'),
+};
+
+// ═══════════════════════════════════════════════════════
+// State
+// ═══════════════════════════════════════════════════════
+let state = loadState(toISO(new Date()));
+let selectedId = null;
+let saveTimer = null;
+let activeInteraction = null;
+let lastTapTime = 0, lastTapX = 0, lastTapY = 0;
+let openPanel = null; // 'editor' | 'presets' | 'menu' | 'palette' | null
+
+function loadState(iso) {
+  const raw = localStorage.getItem(STORAGE + iso);
+  if (raw) {
+    try {
+      const p = JSON.parse(raw);
+      return normalizeState({ ...p, selectedDate: iso });
+    } catch(e) { console.warn(e); }
+  }
+  return seedState(iso);
+}
+
+function seedState(iso) {
+  return {
+    version: 1, selectedDate: iso,
+    weekStart: toISO(weekStart(iso)),
+    updatedAt: new Date().toISOString(),
+    blocks: [
+      mkBlock({title:'성인스터디', area:'schedule', day:1, daySpan:1, startMinutes:600, endMinutes:720}),
+      mkBlock({title:'밴드', area:'schedule', day:3, daySpan:1, startMinutes:540, endMinutes:660}),
+    ],
+  };
+}
+
+function normalizeState(s) {
+  const iso = toISO(s.selectedDate ?? new Date());
+  return {
+    version: 1, ...s, selectedDate: iso,
+    weekStart: toISO(weekStart(iso)),
+    blocks: Array.isArray(s.blocks) ? s.blocks.map(b => mkBlock(b)) : [],
+  };
+}
+
+function serialize() {
+  return JSON.stringify({ ...state, weekStart: toISO(weekStart(state.selectedDate)), updatedAt: new Date().toISOString() }, null, 2);
+}
+
+function save() {
+  localStorage.setItem(STORAGE + state.selectedDate, serialize());
+  el.saveStatus.textContent = '저장됨';
+}
+
+function scheduleSave() {
+  el.saveStatus.textContent = '저장 중...';
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(save, 300);
+}
+
+// ═══════════════════════════════════════════════════════
+// Render
+// ═══════════════════════════════════════════════════════
+function boardWidth() { return el.scheduleBoard.getBoundingClientRect().width; }
+function boardHeight() { return BH; }
+
+function render() {
+  const days = weekDays(state.selectedDate);
+  el.weekTitle.textContent = `${days[0].label} – ${days[6].label}`;
+  renderDayHeader(days);
+  renderBlocks();
+  syncEditor();
+}
+
+function renderDayHeader(days) {
+  el.dayHeader.innerHTML = '';
+  const today = toISO(new Date());
+  days.forEach(d => {
+    const c = document.createElement('div');
+    c.className = 'day-cell' + (d.iso === today ? ' is-today' : '');
+    c.innerHTML = `<span class="dl">${d.label}</span><span class="wl">${d.weekday}</span>`;
+    el.dayHeader.append(c);
+  });
+}
+
+function renderTimeRail() {
+  el.timeRail.innerHTML = '';
+  hourMarks().forEach(h => {
+    const lbl = document.createElement('div');
+    lbl.className = 'time-label';
+    lbl.textContent = h;
+    lbl.style.top = minToY(h * 60, BH) + 'px';
+    el.timeRail.append(lbl);
+  });
+}
+
+function renderBlocks() {
+  el.scheduleLayer.innerHTML = '';
+  el.paletteCanvas.querySelectorAll('.block-card').forEach(n => n.remove());
+  const bw = boardWidth();
+
+  state.blocks.forEach(block => {
+    if (block.area === 'schedule') {
+      const px = blockPixels(block, bw, BH);
+      const card = makeCard({ ...block, ...px });
+      el.scheduleLayer.append(card);
+    } else {
+      const card = makeCard(block);
+      el.paletteCanvas.append(card);
+    }
+  });
+}
+
+function makeCard(b) {
+  const card = document.createElement('article');
+  card.className = 'block-card'
+    + (b.id === selectedId ? ' is-selected' : '')
+    + (b.pattern === 'stripe' ? ' pattern-stripe' : '')
+    + (b.pattern === 'cross' ? ' pattern-cross' : '')
+    + (b.pattern === 'soft' ? ' pattern-soft' : '');
+  card.dataset.id = b.id;
+  card.style.cssText = `left:${b.x}px;top:${b.y}px;width:${b.width}px;height:${b.height}px;`
+    + `background-color:${b.color};color:${b.textColor};border-color:${b.borderColor};`
+    + `border-style:${b.borderStyle};border-radius:${b.radius}px;`;
+
+  const title = document.createElement('div');
+  title.className = 'block-title';
+  title.textContent = b.title;
+  card.append(title);
+
+  if (b.area === 'schedule') {
+    const meta = document.createElement('div');
+    meta.className = 'block-meta';
+    meta.textContent = timeFmt(b.startMinutes) + '–' + timeFmt(b.endMinutes);
+    card.append(meta);
+
+    const rn = document.createElement('span');
+    rn.className = 'resize-n'; rn.dataset.dir = 'n';
+    const rs = document.createElement('span');
+    rs.className = 'resize-s'; rs.dataset.dir = 's';
+    card.append(rn, rs);
+  }
+
+  card.addEventListener('pointerdown', e => onBlockDown(e, b));
+  return card;
+}
+
+// ═══════════════════════════════════════════════════════
+// Pointer / Touch
+// ═══════════════════════════════════════════════════════
+function onBlockDown(e, block) {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  e.stopPropagation();
+
+  const handle = e.target.closest('[data-dir]');
+  const card = e.currentTarget;
+  const rect = card.getBoundingClientRect();
+
+  selectedId = block.id;
+  syncEditor();
+
+  card.setPointerCapture(e.pointerId);
+  card.classList.add('is-selected');
+
+  const bw = boardWidth();
+  const px = block.area === 'schedule' ? blockPixels(block, bw, BH) : block;
+
+  activeInteraction = {
+    mode: handle ? 'resize' : 'drag',
+    dir: handle?.dataset.dir ?? null,
+    id: block.id,
+    area: block.area,
+    startClientX: e.clientX,
+    startClientY: e.clientY,
+    origX: px.x, origY: px.y,
+    origW: px.width, origH: px.height,
+    grabX: e.clientX - rect.left,
+    grabY: e.clientY - rect.top,
+    moved: false,
+    el: card,
+  };
+
+  document.body.classList.add('dragging');
+}
+
+window.addEventListener('pointermove', e => {
+  if (!activeInteraction) return;
+  const ai = activeInteraction;
+  const dx = e.clientX - ai.startClientX;
+  const dy = e.clientY - ai.startClientY;
+
+  if (!ai.moved && Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+  ai.moved = true;
+  ai.el.classList.add('is-dragging');
+
+  if (ai.mode === 'resize') {
+    let newY = ai.origY, newH = ai.origH;
+    if (ai.dir === 'n') { newY = ai.origY + dy; newH = ai.origH - dy; }
+    else { newH = ai.origH + dy; }
+    newH = Math.max(24, newH);
+    ai.el.style.top = newY + 'px';
+    ai.el.style.height = newH + 'px';
+    return;
+  }
+
+  if (ai.area === 'schedule') {
+    const parentRect = el.scheduleBoard.getBoundingClientRect();
+    const nx = e.clientX - parentRect.left - ai.grabX;
+    const ny = e.clientY - parentRect.top - ai.grabY;
+    ai.el.style.left = nx + 'px';
+    ai.el.style.top = ny + 'px';
+  } else {
+    const parentRect = el.paletteCanvas.getBoundingClientRect();
+    const nx = e.clientX - parentRect.left - ai.grabX;
+    const ny = e.clientY - parentRect.top - ai.grabY;
+    ai.el.style.left = nx + 'px';
+    ai.el.style.top = ny + 'px';
+  }
+});
+
+window.addEventListener('pointerup', e => {
+  if (!activeInteraction) return;
+  const ai = activeInteraction;
+  activeInteraction = null;
+  ai.el.classList.remove('is-dragging');
+  document.body.classList.remove('dragging');
+
+  const block = state.blocks.find(b => b.id === ai.id);
+  if (!block) return;
+
+  if (!ai.moved) {
+    showEditor();
+    render();
+    return;
+  }
+
+  const bw = boardWidth();
+
+  if (ai.mode === 'resize' && block.area === 'schedule') {
+    const dy = e.clientY - ai.startClientY;
+    let newY = ai.origY, newH = ai.origH;
+    if (ai.dir === 'n') { newY = ai.origY + dy; newH = ai.origH - dy; }
+    else { newH = ai.origH + dy; }
+    newH = Math.max(24, newH);
+    const snapped = snapBlock({ ...block, y: newY, height: newH, x: ai.origX, width: ai.origW }, bw, BH);
+    updateBlock(ai.id, snapped);
+    return;
+  }
+
+  if (block.area === 'schedule') {
+    const parentRect = el.scheduleBoard.getBoundingClientRect();
+    const nx = e.clientX - parentRect.left - ai.grabX;
+    const ny = e.clientY - parentRect.top - ai.grabY;
+    const snapped = snapBlock({ ...block, x: nx, y: ny, width: ai.origW, height: ai.origH }, bw, BH);
+    updateBlock(ai.id, snapped);
+  } else {
+    const parentRect = el.paletteCanvas.getBoundingClientRect();
+    const pw = parentRect.width, ph = parentRect.height;
+    const nx = clamp(e.clientX - parentRect.left - ai.grabX, 0, pw - ai.origW);
+    const ny = clamp(e.clientY - parentRect.top - ai.grabY, 0, ph - ai.origH);
+    updateBlock(ai.id, { x: nx, y: ny });
+  }
+});
+
+// double-tap on schedule board to add block
+el.scheduleBoard.addEventListener('click', e => {
+  if (e.target.closest('.block-card')) return;
+  const now = Date.now();
+  const dist = Math.hypot(e.clientX - lastTapX, e.clientY - lastTapY);
+  if (now - lastTapTime < 350 && dist < 30) {
+    const rect = el.scheduleBoard.getBoundingClientRect();
+    addBlockAtPoint(e.clientX - rect.left, e.clientY - rect.top);
+    lastTapTime = 0;
+    return;
+  }
+  lastTapTime = now;
+  lastTapX = e.clientX;
+  lastTapY = e.clientY;
+  selectedId = null;
+  hideEditor();
+  render();
+});
+
+// ═══════════════════════════════════════════════════════
+// Block CRUD
+// ═══════════════════════════════════════════════════════
+function addBlockAtPoint(x, y) {
+  const bw = boardWidth();
+  const raw = mkBlock({ area:'schedule', x: x - 40, y, width: bw/7, height: 50 });
+  const snapped = snapBlock(raw, bw, BH);
+  state = { ...state, blocks: [...state.blocks, snapped] };
+  selectedId = snapped.id;
+  showEditor();
+  render();
+  scheduleSave();
+}
+
+function addPresetToSchedule(preset) {
+  const bw = boardWidth();
+  const raw = mkBlock({
+    ...preset,
+    area:'schedule', x: 0, y: minToY(480, BH),
+    width: bw / 7, height: Math.max(50, preset.height || 50),
+  });
+  const snapped = snapBlock(raw, bw, BH);
+  state = { ...state, blocks: [...state.blocks, snapped] };
+  selectedId = snapped.id;
+  closeAllPanels();
+  showEditor();
+  render();
+  scheduleSave();
+}
+
+function addBlockToPalette(o = {}) {
+  const b = mkBlock({ ...o, area: 'palette', x: 20 + Math.random()*100, y: 20 + Math.random()*100 });
+  state = { ...state, blocks: [...state.blocks, b] };
+  selectedId = b.id;
+  render();
+  scheduleSave();
+}
+
+function updateBlock(id, patch) {
+  state = { ...state, blocks: state.blocks.map(b => b.id === id ? { ...b, ...patch } : b) };
+  render();
+  scheduleSave();
+}
+
+function deleteBlock(id) {
+  state = { ...state, blocks: state.blocks.filter(b => b.id !== id) };
+  if (selectedId === id) { selectedId = null; hideEditor(); }
+  render();
+  scheduleSave();
+}
+
+// ═══════════════════════════════════════════════════════
+// Editor
+// ═══════════════════════════════════════════════════════
+function showEditor() {
+  if (!selectedId) return;
+  openPanel = 'editor';
+  el.editorSheet.classList.add('visible');
+  el.backdrop.classList.add('visible');
+  syncEditor();
+}
+
+function hideEditor() {
+  openPanel = null;
+  el.editorSheet.classList.remove('visible');
+  el.backdrop.classList.remove('visible');
+}
+
+function syncEditor() {
+  const b = state.blocks.find(b => b.id === selectedId);
+  if (!b) return;
+  el.titleInput.value = b.title;
+  el.colorInput.value = b.color;
+  el.textColorInput.value = b.textColor;
+  el.borderColorInput.value = b.borderColor;
+  el.radiusInput.value = b.radius;
+  el.patternInput.value = b.pattern;
+  el.borderStyleInput.value = b.borderStyle;
+}
+
+function applyEditorPatch() {
+  if (!selectedId) return;
+  const b = state.blocks.find(b => b.id === selectedId);
+  if (!b) return;
+  const patch = {
+    title: el.titleInput.value,
+    color: el.colorInput.value,
+    textColor: el.textColorInput.value,
+    borderColor: el.borderColorInput.value,
+    radius: Number(el.radiusInput.value),
+    pattern: el.patternInput.value,
+    borderStyle: el.borderStyleInput.value,
+  };
+  updateBlock(selectedId, patch);
+}
+
+[el.titleInput, el.colorInput, el.textColorInput, el.borderColorInput,
+ el.radiusInput, el.patternInput, el.borderStyleInput].forEach(
+  inp => inp.addEventListener('input', applyEditorPatch)
+);
+
+el.deleteBlockBtn.addEventListener('click', () => { if (selectedId) deleteBlock(selectedId); });
+el.closeSheetBtn.addEventListener('click', () => { selectedId = null; hideEditor(); render(); });
+
+// ═══════════════════════════════════════════════════════
+// Panels
+// ═══════════════════════════════════════════════════════
+function closeAllPanels() {
+  el.editorSheet.classList.remove('visible');
+  el.presetsOverlay.classList.remove('visible');
+  el.menuOverlay.classList.remove('visible');
+  el.paletteDrawer.classList.remove('visible');
+  el.backdrop.classList.remove('visible');
+  openPanel = null;
+}
+
+el.backdrop.addEventListener('click', () => {
+  if (openPanel === 'editor') { selectedId = null; render(); }
+  closeAllPanels();
+});
+
+el.presetsBtn.addEventListener('click', () => {
+  closeAllPanels();
+  openPanel = 'presets';
+  el.presetsOverlay.classList.add('visible');
+});
+el.closePresetsBtn.addEventListener('click', closeAllPanels);
+
+el.menuBtn.addEventListener('click', () => {
+  closeAllPanels();
+  openPanel = 'menu';
+  el.menuOverlay.classList.add('visible');
+});
+el.closeMenuBtn.addEventListener('click', closeAllPanels);
+
+el.paletteBtn.addEventListener('click', () => {
+  closeAllPanels();
+  openPanel = 'palette';
+  el.paletteDrawer.classList.add('visible');
+  el.backdrop.classList.add('visible');
+});
+el.closePaletteBtn.addEventListener('click', closeAllPanels);
+
+el.addBlockBtn.addEventListener('click', () => {
+  const bw = boardWidth();
+  const raw = mkBlock({ area:'schedule', x: 0, y: minToY(480, BH), width: bw/7, height: 50 });
+  const snapped = snapBlock(raw, bw, BH);
+  state = { ...state, blocks: [...state.blocks, snapped] };
+  selectedId = snapped.id;
+  showEditor();
+  render();
+  scheduleSave();
+});
+
+// ═══════════════════════════════════════════════════════
+// Presets
+// ═══════════════════════════════════════════════════════
+function renderPresets() {
+  el.presetList.innerHTML = '';
+  PRESETS.forEach(p => {
+    const btn = document.createElement('button');
+    btn.className = 'preset-chip';
+    btn.textContent = p.title.replace(/\n/g, ' ');
+    btn.style.backgroundColor = p.color;
+    btn.style.borderColor = p.borderColor || '#111827';
+    btn.addEventListener('click', () => addPresetToSchedule(p));
+    el.presetList.append(btn);
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// Date nav
+// ═══════════════════════════════════════════════════════
+function changeDate(input) {
+  save();
+  const iso = toISO(input);
+  state = loadState(iso);
+  selectedId = null;
+  hideEditor();
+  render();
+}
+
+el.prevWeekBtn.addEventListener('click', () => changeDate(addDays(state.selectedDate, -7)));
+el.nextWeekBtn.addEventListener('click', () => changeDate(addDays(state.selectedDate, 7)));
+el.todayBtn.addEventListener('click', () => changeDate(new Date()));
+
+// ═══════════════════════════════════════════════════════
+// Import / Export
+// ═══════════════════════════════════════════════════════
+el.exportBtn.addEventListener('click', () => {
+  const blob = new Blob([serialize()], { type:'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = toISO(state.selectedDate) + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  el.saveStatus.textContent = '내보내기 완료';
+  closeAllPanels();
+});
+
+el.importInput.addEventListener('change', async e => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  try {
+    const parsed = JSON.parse(await file.text());
+    state = normalizeState({ ...parsed, selectedDate: parsed.selectedDate ?? state.selectedDate });
+    selectedId = null;
+    render();
+    scheduleSave();
+    el.saveStatus.textContent = '가져오기 완료';
+  } catch(err) {
+    console.error(err);
+    el.saveStatus.textContent = '가져오기 실패';
+  }
+  e.target.value = '';
+  closeAllPanels();
+});
+
+// ═══════════════════════════════════════════════════════
+// Orientation / resize
+// ═══════════════════════════════════════════════════════
+window.addEventListener('resize', () => render());
+window.addEventListener('beforeunload', save);
+
+// ═══════════════════════════════════════════════════════
+// Init
+// ═══════════════════════════════════════════════════════
+renderTimeRail();
+renderPresets();
+render();
+el.saveStatus.textContent = '준비됨';
+
+// scroll to ~8AM on load
+requestAnimationFrame(() => {
+  el.boardScroll.scrollTop = minToY(480, BH) - 40;
+});
+</script>
+</body>
+</html>
