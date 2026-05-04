@@ -186,8 +186,12 @@ function bindEvents() {
         daySpan: 1,
         startMinutes: startMin,
         endMinutes: endMin,
+        x: 0,
+        y: minutesToY(startMin),
+        width: 100,
+        height: minutesToY(endMin) - minutesToY(startMin),
       });
-      state = { ...state, blocks: [...state.blocks, snapScheduleBlockToGrid(newBlock, boundsForArea('schedule'))] };
+      state = { ...state, blocks: [...state.blocks, newBlock] };
       selectedId = newBlock.id;
       render();
       scheduleSave();

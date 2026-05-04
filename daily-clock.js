@@ -127,18 +127,19 @@ function buildClockSVG(blocks, onBlockClick, onUpdate, onAddBlock) {
 
   svg.append(bg);
 
-  // hour grid lines (light)
+  // hour tick marks (outside edge only)
   for (let h = 0; h < 24; h++) {
     const angle = minutesToAngle(h * 60);
+    const isMajor = h % 6 === 0;
     const outer = polarToXY(angle, CLOCK_RADIUS);
-    const inner = polarToXY(angle, INNER_RADIUS);
+    const inner = polarToXY(angle, CLOCK_RADIUS - (isMajor ? 14 : 7));
     const line = document.createElementNS(ns, 'line');
     line.setAttribute('x1', inner.x);
     line.setAttribute('y1', inner.y);
     line.setAttribute('x2', outer.x);
     line.setAttribute('y2', outer.y);
-    line.setAttribute('stroke', h % 6 === 0 ? 'rgba(31,41,55,0.2)' : 'rgba(31,41,55,0.07)');
-    line.setAttribute('stroke-width', h % 6 === 0 ? '1.5' : '0.5');
+    line.setAttribute('stroke', isMajor ? 'rgba(31,41,55,0.4)' : 'rgba(31,41,55,0.15)');
+    line.setAttribute('stroke-width', isMajor ? '2' : '1');
     svg.append(line);
   }
 
@@ -185,7 +186,7 @@ function buildClockSVG(blocks, onBlockClick, onUpdate, onAddBlock) {
       text.setAttribute('y', lp.y);
       text.setAttribute('text-anchor', 'middle');
       text.setAttribute('dominant-baseline', 'central');
-      text.setAttribute('font-size', span >= 180 ? '18' : span >= 120 ? '15' : span >= 60 ? '13' : '10');
+      text.setAttribute('font-size', span >= 180 ? '28' : span >= 120 ? '22' : span >= 60 ? '18' : '14');
       text.setAttribute('font-weight', '800');
       text.setAttribute('fill', block.textColor || '#111827');
       text.setAttribute('pointer-events', 'none');
@@ -204,7 +205,7 @@ function buildClockSVG(blocks, onBlockClick, onUpdate, onAddBlock) {
     text.setAttribute('y', labelPos.y);
     text.setAttribute('text-anchor', 'middle');
     text.setAttribute('dominant-baseline', 'central');
-    text.setAttribute('font-size', isMajor ? '18' : '14');
+    text.setAttribute('font-size', isMajor ? '22' : '16');
     text.setAttribute('font-weight', isMajor ? '900' : '700');
     text.setAttribute('fill', '#1f2937');
     text.textContent = hourLabel(h);
