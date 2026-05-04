@@ -17,6 +17,8 @@ import {
   toISODate,
   yToMinutes,
 } from './scheduler-core.js';
+import { initAuth, getUser, setAuthChangeCallback, signOut, renderAuthModal, removeAuthModal } from './auth.js';
+import { saveToSupabase, loadFromSupabase, loadPreviousWeek } from './supabase-storage.js';
 
 const STORAGE_PREFIX = 'jby-schedule:';
 const SAVE_DEBOUNCE_MS = 250;
@@ -75,14 +77,51 @@ let directoryHandle = null;
 let activeInteraction = null;
 let copiedBlock = null;
 
-init();
+const authContainer = document.querySelector('#authContainer');
+const logoutBtn = document.querySelector('#logoutBtn');
+
+startApp();
+
+async function startApp() {
+  const user = await initAuth();
+
+  setAuthChangeCallback(async (u) => {
+    if (u) {
+      removeAuthModal(authContainer);
+      logoutBtn.style.display = '';
+      state = await loadStateForDateAsync(toISODate(new Date()));
+      selectedId = state.blocks[0]?.id ?? null;
+      render();
+      setSaveStatus('서버 동기화됨');
+    } else {
+      logoutBtn.style.display = 'none';
+      renderAuthModal(authContainer);
+    }
+  });
+
+  if (!user) {
+    renderAuthModal(authContainer);
+  } else {
+    logoutBtn.style.display = '';
+    state = await loadStateForDateAsync(toISODate(new Date()));
+    selectedId = state.blocks[0]?.id ?? null;
+  }
+
+  init();
+}
 
 function init() {
   renderPresets();
   renderTimeRail();
   bindEvents();
   render();
-  setSaveStatus('로컬 저장 준비됨');
+  setSaveStatus(getUser() ? '서버 동기화됨' : '로컬 저장 준비됨');
+
+  logoutBtn.addEventListener('click', async () => {
+    await signOut();
+    logoutBtn.style.display = 'none';
+    renderAuthModal(authContainer);
+  });
 }
 
 function bindEvents() {
@@ -563,10 +602,10 @@ function syncEditor() {
   els.heightInput.value = Math.round(selected.height);
 }
 
-function changeDate(input) {
+async function changeDate(input) {
   persistLocalNow();
   const nextDate = toISODate(input);
-  state = loadStateForDate(nextDate);
+  state = await loadStateForDateAsync(nextDate);
   selectedId = state.blocks[0]?.id ?? null;
   render();
   scheduleSave();
@@ -583,6 +622,28 @@ function loadStateForDate(isoDate) {
     }
   }
   return seedState(isoDate);
+}
+
+async function loadStateForDateAsync(isoDate) {
+  const weekStart = toISODate(getWeekStart(isoDate));
+
+  if (getUser()) {
+    const remote = await loadFromSupabase(weekStart);
+    if (remote) {
+      const loaded = normalizeState({ ...remote, selectedDate: isoDate });
+      localStorage.setItem(`${STORAGE_PREFIX}${isoDate}`, JSON.stringify(loaded));
+      return loaded;
+    }
+
+    const prev = await loadPreviousWeek(weekStart);
+    if (prev) {
+      const copied = normalizeState({ ...prev, selectedDate: isoDate, weekStart });
+      setSaveStatus('전주 데이터를 복사했습니다');
+      return copied;
+    }
+  }
+
+  return loadStateForDate(isoDate);
 }
 
 function seedState(isoDate) {
@@ -628,7 +689,16 @@ function scheduleSave() {
   saveTimer = setTimeout(async () => {
     persistLocalNow();
     await persistFileNow();
+    await persistSupabaseNow();
   }, SAVE_DEBOUNCE_MS);
+}
+
+async function persistSupabaseNow() {
+  if (!getUser()) return;
+  const weekStart = toISODate(getWeekStart(state.selectedDate));
+  const stateData = JSON.parse(serializeState());
+  const ok = await saveToSupabase(weekStart, stateData);
+  if (ok) setSaveStatus(`서버 저장됨 · ${weekStart}`);
 }
 
 function persistLocalNow() {
