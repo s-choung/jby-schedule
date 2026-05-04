@@ -41,7 +41,7 @@ const PRESETS = [
 ];
 
 const els = {
-  addBlockBtn: document.querySelector('#addBlockBtn'),
+  addBlockBtn: document.querySelector('#addBlockBtn'),  // may be null
   paletteCanvas: document.querySelector('#paletteCanvas'),
   presetList: document.querySelector('#presetList'),
   deleteBlockBtn: document.querySelector('#deleteBlockBtn'),
@@ -125,7 +125,7 @@ function init() {
 }
 
 function bindEvents() {
-  els.addBlockBtn.addEventListener('click', () => addBlockToPalette());
+  if (els.addBlockBtn) els.addBlockBtn.addEventListener('click', () => addBlockToPalette());
   els.deleteBlockBtn.addEventListener('click', deleteSelectedBlock);
 
   const editorToggle = document.querySelector('#editorToggle');
@@ -146,9 +146,12 @@ function bindEvents() {
   els.todayBtn.addEventListener('click', () => changeDate(new Date()));
   els.dateInput.addEventListener('change', (event) => changeDate(event.target.value));
 
-  els.folderBtn.addEventListener('click', chooseSaveFolder);
-  els.exportBtn.addEventListener('click', exportJson);
-  els.importInput.addEventListener('change', importJson);
+  if (els.folderBtn) els.folderBtn.addEventListener('click', chooseSaveFolder);
+  if (els.exportBtn) els.exportBtn.addEventListener('click', exportJson);
+  if (els.importInput) els.importInput.addEventListener('change', importJson);
+
+  const loadPrevBtn = document.querySelector('#loadPrevWeekBtn');
+  if (loadPrevBtn) loadPrevBtn.addEventListener('click', loadPreviousWeekData);
 
   els.scheduleBoard.addEventListener('dblclick', (event) => {
     if (event.target.closest('.block-card')) return;
@@ -304,6 +307,13 @@ function onGlobalKeyDown(event) {
   } else if (isPaste || isDuplicate) {
     pasteCopiedBlock();
     event.preventDefault();
+  } else if (selectedId && event.key.length === 1 && !event.metaKey && !event.ctrlKey && !event.altKey) {
+    const card = document.querySelector(`.block-card[data-id="${selectedId}"]`);
+    if (card) {
+      const title = card.querySelector('.block-title');
+      title.textContent = '';
+      focusBlockTitle(card);
+    }
   }
 }
 
@@ -647,16 +657,28 @@ async function loadStateForDateAsync(isoDate) {
       localStorage.setItem(`${STORAGE_PREFIX}${isoDate}`, JSON.stringify(loaded));
       return loaded;
     }
-
-    const prev = await loadPreviousWeek(weekStart);
-    if (prev) {
-      const copied = normalizeState({ ...prev, selectedDate: isoDate, weekStart });
-      setSaveStatus('전주 데이터를 복사했습니다');
-      return copied;
-    }
   }
 
   return loadStateForDate(isoDate);
+}
+
+async function loadPreviousWeekData() {
+  if (!getUser()) {
+    setSaveStatus('로그인이 필요합니다');
+    return;
+  }
+  const weekStart = toISODate(getWeekStart(state.selectedDate));
+  setSaveStatus('이전 주 데이터 불러오는 중...');
+  const prev = await loadPreviousWeek(weekStart);
+  if (prev) {
+    state = normalizeState({ ...prev, selectedDate: state.selectedDate, weekStart });
+    selectedId = state.blocks[0]?.id ?? null;
+    render();
+    scheduleSave();
+    setSaveStatus('이전 주 데이터를 불러왔습니다');
+  } else {
+    setSaveStatus('이전 주 데이터가 없습니다');
+  }
 }
 
 function seedState(isoDate) {

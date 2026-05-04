@@ -64,7 +64,7 @@ select:focus-visible,
 
 .app-shell {
   display: grid;
-  grid-template-columns: minmax(340px, 43vw) minmax(680px, 1fr);
+  grid-template-columns: minmax(240px, 30%) minmax(500px, 1fr);
   gap: 24px;
   min-height: 100vh;
   padding: 28px;
