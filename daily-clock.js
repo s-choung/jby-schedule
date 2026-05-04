@@ -74,20 +74,57 @@ function buildClockSVG(blocks, onBlockClick, onUpdate, onAddBlock) {
   bg.setAttribute('stroke', '#1f2937');
   bg.setAttribute('stroke-width', '2.5');
   bg.style.cursor = 'crosshair';
-  bg.addEventListener('dblclick', (e) => {
-    if (!onAddBlockCallback) return;
+
+  let dragState = null;
+  let previewArc = null;
+
+  function getSvgCoords(e) {
     const rect = svg.getBoundingClientRect();
     const scale = SVG_SIZE / rect.width;
-    const x = (e.clientX - rect.left) * scale;
-    const y = (e.clientY - rect.top) * scale;
-    const dx = x - CENTER;
-    const dy = y - CENTER;
+    return { x: (e.clientX - rect.left) * scale, y: (e.clientY - rect.top) * scale };
+  }
+
+  function isInRing(x, y) {
+    const dx = x - CENTER, dy = y - CENTER;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist < INNER_RADIUS || dist > CLOCK_RADIUS) return;
-    const startMin = xyToMinutes(x, y);
-    const endMin = Math.min(startMin + 120, TOTAL_MINUTES);
-    onAddBlockCallback(startMin, endMin);
+    return dist >= INNER_RADIUS && dist <= CLOCK_RADIUS;
+  }
+
+  bg.addEventListener('pointerdown', (e) => {
+    const { x, y } = getSvgCoords(e);
+    if (!isInRing(x, y)) return;
+    e.preventDefault();
+    bg.setPointerCapture(e.pointerId);
+    dragState = { startMin: xyToMinutes(x, y) };
+    previewArc = document.createElementNS(ns, 'path');
+    previewArc.setAttribute('fill', 'rgba(167,211,245,0.4)');
+    previewArc.setAttribute('stroke', '#4f46e5');
+    previewArc.setAttribute('stroke-width', '2');
+    previewArc.setAttribute('stroke-dasharray', '6 3');
+    svg.append(previewArc);
   });
+
+  bg.addEventListener('pointermove', (e) => {
+    if (!dragState || !previewArc) return;
+    const { x, y } = getSvgCoords(e);
+    const endMin = xyToMinutes(x, y);
+    let sm = dragState.startMin, em = endMin;
+    if (em <= sm) em = sm + 30;
+    previewArc.setAttribute('d', piePath(sm, em, CLOCK_RADIUS - 2));
+  });
+
+  bg.addEventListener('pointerup', (e) => {
+    if (!dragState) return;
+    const { x, y } = getSvgCoords(e);
+    let endMin = xyToMinutes(x, y);
+    let sm = dragState.startMin;
+    if (endMin <= sm) endMin = sm + 30;
+    if (endMin - sm < 30) endMin = sm + 30;
+    if (previewArc) { previewArc.remove(); previewArc = null; }
+    dragState = null;
+    if (onAddBlockCallback) onAddBlockCallback(sm, Math.min(endMin, TOTAL_MINUTES));
+  });
+
   svg.append(bg);
 
   // hour grid lines (light)
@@ -142,34 +179,18 @@ function buildClockSVG(blocks, onBlockClick, onUpdate, onAddBlock) {
     const labelR = CLOCK_RADIUS * 0.55;
     const lp = polarToXY(midAngle, labelR);
 
-    if (span >= 30) {
+    if (span >= 20) {
       const text = document.createElementNS(ns, 'text');
       text.setAttribute('x', lp.x);
       text.setAttribute('y', lp.y);
       text.setAttribute('text-anchor', 'middle');
       text.setAttribute('dominant-baseline', 'central');
-      text.setAttribute('font-size', span >= 120 ? '11' : span >= 60 ? '9' : '7');
+      text.setAttribute('font-size', span >= 180 ? '18' : span >= 120 ? '15' : span >= 60 ? '13' : '10');
       text.setAttribute('font-weight', '800');
       text.setAttribute('fill', block.textColor || '#111827');
       text.setAttribute('pointer-events', 'none');
-      text.textContent = block.title.replace(/\n/g, ' ').slice(0, 10);
+      text.textContent = block.title.replace(/\n/g, ' ').slice(0, 12);
       svg.append(text);
-
-      if (span >= 60) {
-        const timeText = document.createElementNS(ns, 'text');
-        const tp = polarToXY(midAngle, labelR - 14);
-        timeText.setAttribute('x', tp.x);
-        timeText.setAttribute('y', tp.y);
-        timeText.setAttribute('text-anchor', 'middle');
-        timeText.setAttribute('dominant-baseline', 'central');
-        timeText.setAttribute('font-size', '7');
-        timeText.setAttribute('font-weight', '600');
-        timeText.setAttribute('fill', block.textColor || '#111827');
-        timeText.setAttribute('opacity', '0.6');
-        timeText.setAttribute('pointer-events', 'none');
-        timeText.textContent = `${fmtTime(block.startMinutes)}–${fmtTime(block.endMinutes)}`;
-        svg.append(timeText);
-      }
     }
   });
 
@@ -183,8 +204,8 @@ function buildClockSVG(blocks, onBlockClick, onUpdate, onAddBlock) {
     text.setAttribute('y', labelPos.y);
     text.setAttribute('text-anchor', 'middle');
     text.setAttribute('dominant-baseline', 'central');
-    text.setAttribute('font-size', isMajor ? '13' : '10');
-    text.setAttribute('font-weight', isMajor ? '900' : '600');
+    text.setAttribute('font-size', isMajor ? '18' : '14');
+    text.setAttribute('font-weight', isMajor ? '900' : '700');
     text.setAttribute('fill', '#1f2937');
     text.textContent = hourLabel(h);
     svg.append(text);
