@@ -74,7 +74,7 @@ function buildClockSVG(blocks, onBlockClick, onUpdate, onAddBlock) {
   bg.setAttribute('stroke', '#1f2937');
   bg.setAttribute('stroke-width', '2.5');
   bg.style.cursor = 'crosshair';
-  bg.addEventListener('click', (e) => {
+  bg.addEventListener('dblclick', (e) => {
     if (!onAddBlockCallback) return;
     const rect = svg.getBoundingClientRect();
     const scale = SVG_SIZE / rect.width;
@@ -119,6 +119,15 @@ function buildClockSVG(blocks, onBlockClick, onUpdate, onAddBlock) {
       e.stopPropagation();
       selectedClockBlockId = block.id;
       onBlockClick(block.id);
+    });
+    path.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+      selectedClockBlockId = block.id;
+      onBlockClick(block.id);
+      setTimeout(() => {
+        const titleInput = document.querySelector('#clockTitle');
+        if (titleInput) { titleInput.focus(); titleInput.select(); }
+      }, 50);
     });
 
     const tooltip = document.createElementNS(ns, 'title');
