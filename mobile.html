@@ -6,6 +6,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>Todos Weekly Schedule</title>
+<link rel="manifest" href="./manifest.json" />
+<meta name="theme-color" content="#fffdf7" />
+<link rel="apple-touch-icon" href="./icon-192.png" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 :root {
@@ -1214,6 +1217,8 @@ requestAnimationFrame(() => {
     renderAuthModal();
   });
 })();
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
 </script>
 </body>
 </html>
