@@ -165,6 +165,7 @@ function bindEvents() {
   let clockDayIndex = new Date().getDay();
   clockDayIndex = clockDayIndex === 0 ? 6 : clockDayIndex - 1;
 
+  window._renderClockFn = renderClock;
   function renderClock() {
     const days = getWeekDays(state.selectedDate);
     const day = days[clockDayIndex];
@@ -277,6 +278,15 @@ function render() {
   renderDayHeader(weekDays);
   renderBlocks();
   syncEditor();
+  syncClockIfOpen();
+}
+
+function syncClockIfOpen() {
+  const overlay = document.querySelector('#dailyClockOverlay');
+  if (overlay && overlay.style.display !== 'none') {
+    const renderClockFn = window._renderClockFn;
+    if (renderClockFn) renderClockFn();
+  }
 }
 
 function renderDayHeader(weekDays) {

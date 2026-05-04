@@ -1,7 +1,7 @@
 const TOTAL_MINUTES = 1440;
-const CLOCK_RADIUS = 260;
-const INNER_RADIUS = 24;
-const CENTER = CLOCK_RADIUS + 30;
+const CLOCK_RADIUS = 390;
+const INNER_RADIUS = 30;
+const CENTER = CLOCK_RADIUS + 36;
 const SVG_SIZE = CENTER * 2;
 
 function minutesToAngle(minutes) {
@@ -62,8 +62,8 @@ function buildClockSVG(blocks, onBlockClick, onUpdate, onAddBlock) {
   svg.setAttribute('viewBox', `0 0 ${SVG_SIZE} ${SVG_SIZE}`);
   svg.setAttribute('width', '100%');
   svg.setAttribute('height', '100%');
-  svg.style.maxWidth = '420px';
-  svg.style.maxHeight = '420px';
+  svg.style.maxWidth = '640px';
+  svg.style.maxHeight = '640px';
 
   // background circle — click to add block
   const bg = document.createElementNS(ns, 'circle');
@@ -85,7 +85,7 @@ function buildClockSVG(blocks, onBlockClick, onUpdate, onAddBlock) {
     const dist = Math.sqrt(dx * dx + dy * dy);
     if (dist < INNER_RADIUS || dist > CLOCK_RADIUS) return;
     const startMin = xyToMinutes(x, y);
-    const endMin = Math.min(startMin + 60, TOTAL_MINUTES);
+    const endMin = Math.min(startMin + 120, TOTAL_MINUTES);
     onAddBlockCallback(startMin, endMin);
   });
   svg.append(bg);
