@@ -179,24 +179,6 @@ function bindEvents() {
       syncEditor();
       render();
       renderClockEditor(blockId);
-    }, null, (startMin, endMin) => {
-      const newBlock = createBlock({
-        area: 'schedule',
-        day: clockDayIndex,
-        daySpan: 1,
-        startMinutes: startMin,
-        endMinutes: endMin,
-        x: 0,
-        y: minutesToY(startMin),
-        width: 100,
-        height: minutesToY(endMin) - minutesToY(startMin),
-      });
-      state = { ...state, blocks: [...state.blocks, newBlock] };
-      selectedId = newBlock.id;
-      render();
-      scheduleSave();
-      renderClock();
-      renderClockEditor(newBlock.id);
     });
     clockContainer.append(svg);
 
@@ -227,6 +209,26 @@ function bindEvents() {
     });
   }
   if (clockCloseBtn) clockCloseBtn.addEventListener('click', () => { clockOverlay.style.display = 'none'; });
+  const clockAddBtn = document.querySelector('#clockAddBtn');
+  if (clockAddBtn) clockAddBtn.addEventListener('click', () => {
+    const newBlock = createBlock({
+      area: 'schedule',
+      day: clockDayIndex,
+      daySpan: 1,
+      startMinutes: 480,
+      endMinutes: 600,
+      x: 0,
+      y: minutesToY(480),
+      width: 100,
+      height: minutesToY(600) - minutesToY(480),
+    });
+    state = { ...state, blocks: [...state.blocks, newBlock] };
+    selectedId = newBlock.id;
+    render();
+    scheduleSave();
+    renderClock();
+    renderClockEditor(newBlock.id);
+  });
   if (clockPrevDay) clockPrevDay.addEventListener('click', () => { clockDayIndex = (clockDayIndex + 6) % 7; renderClock(); });
   if (clockNextDay) clockNextDay.addEventListener('click', () => { clockDayIndex = (clockDayIndex + 1) % 7; renderClock(); });
   clockOverlay?.addEventListener('click', (e) => { if (e.target === clockOverlay) clockOverlay.style.display = 'none'; });

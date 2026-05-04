@@ -73,62 +73,6 @@ function buildClockSVG(blocks, onBlockClick, onUpdate, onAddBlock) {
   bg.setAttribute('fill', '#f5f3eb');
   bg.setAttribute('stroke', '#1f2937');
   bg.setAttribute('stroke-width', '2.5');
-  bg.style.cursor = 'crosshair';
-
-  let dragState = null;
-  let previewArc = null;
-
-  function getSvgCoords(e) {
-    const pt = svg.createSVGPoint();
-    pt.x = e.clientX;
-    pt.y = e.clientY;
-    const ctm = svg.getScreenCTM();
-    if (!ctm) return { x: CENTER, y: CENTER };
-    const svgPt = pt.matrixTransform(ctm.inverse());
-    return { x: svgPt.x, y: svgPt.y };
-  }
-
-  function isInRing(x, y) {
-    const dx = x - CENTER, dy = y - CENTER;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    return dist >= INNER_RADIUS && dist <= CLOCK_RADIUS;
-  }
-
-  bg.addEventListener('pointerdown', (e) => {
-    const { x, y } = getSvgCoords(e);
-    if (!isInRing(x, y)) return;
-    e.preventDefault();
-    bg.setPointerCapture(e.pointerId);
-    dragState = { startMin: xyToMinutes(x, y) };
-    previewArc = document.createElementNS(ns, 'path');
-    previewArc.setAttribute('fill', 'rgba(167,211,245,0.4)');
-    previewArc.setAttribute('stroke', '#4f46e5');
-    previewArc.setAttribute('stroke-width', '2');
-    previewArc.setAttribute('stroke-dasharray', '6 3');
-    svg.append(previewArc);
-  });
-
-  bg.addEventListener('pointermove', (e) => {
-    if (!dragState || !previewArc) return;
-    const { x, y } = getSvgCoords(e);
-    const endMin = xyToMinutes(x, y);
-    let sm = dragState.startMin, em = endMin;
-    if (em <= sm) em = sm + 30;
-    previewArc.setAttribute('d', piePath(sm, em, CLOCK_RADIUS - 2));
-  });
-
-  bg.addEventListener('pointerup', (e) => {
-    if (!dragState) return;
-    const { x, y } = getSvgCoords(e);
-    let endMin = xyToMinutes(x, y);
-    let sm = dragState.startMin;
-    if (endMin <= sm) endMin = sm + 30;
-    if (endMin - sm < 30) endMin = sm + 30;
-    if (previewArc) { previewArc.remove(); previewArc = null; }
-    dragState = null;
-    if (onAddBlockCallback) onAddBlockCallback(sm, Math.min(endMin, TOTAL_MINUTES));
-  });
-
   svg.append(bg);
 
   // hour tick marks (outside edge only)
