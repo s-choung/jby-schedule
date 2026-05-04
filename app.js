@@ -128,6 +128,15 @@ function bindEvents() {
   els.addBlockBtn.addEventListener('click', () => addBlockToPalette());
   els.deleteBlockBtn.addEventListener('click', deleteSelectedBlock);
 
+  const editorToggle = document.querySelector('#editorToggle');
+  const editorBody = document.querySelector('#editorBody');
+  const editorArrow = document.querySelector('#editorArrow');
+  editorToggle.addEventListener('click', () => {
+    const hidden = editorBody.style.display === 'none';
+    editorBody.style.display = hidden ? '' : 'none';
+    editorArrow.textContent = hidden ? '▼' : '▶';
+  });
+
   for (const input of [els.titleInput, els.colorInput, els.textColorInput, els.borderColorInput, els.radiusInput, els.patternInput, els.borderStyleInput, els.widthInput, els.heightInput]) {
     input.addEventListener('input', applyEditorPatch);
   }
@@ -346,6 +355,10 @@ function onBlockPointerDown(event, block) {
   const title = event.target.closest('.block-title');
   const isTitleFocused = title && document.activeElement === title;
   if (event.detail > 1) return;
+  if (title && selectedId === block.id && !isTitleFocused) {
+    focusBlockTitle(event.currentTarget);
+    return;
+  }
   selectedId = block.id;
   event.currentTarget.classList.add('is-selected');
   syncEditor();

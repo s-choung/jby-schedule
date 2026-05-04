@@ -40,10 +40,11 @@
         </section>
 
         <section class="panel editor-panel" aria-labelledby="editorTitle">
-          <div class="panel-title-row">
-            <h2 id="editorTitle">선택 블록 편집</h2>
+          <div class="panel-title-row" style="cursor:pointer" id="editorToggle">
+            <h2 id="editorTitle">선택 블록 편집 <span id="editorArrow" style="font-size:.7em">▶</span></h2>
             <button id="deleteBlockBtn" class="ghost-btn danger" type="button">삭제</button>
           </div>
+          <div id="editorBody" style="display:none">
 
           <label class="field full">
             <span>이름</span>
@@ -95,6 +96,7 @@
               <span>높이</span>
               <input id="heightInput" type="number" min="28" step="4" />
             </label>
+          </div>
           </div>
         </section>
       </aside>
