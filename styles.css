@@ -676,7 +676,9 @@ input[type="color"] {
   border: 2px solid var(--line);
   border-radius: 20px;
   padding: 1.5rem 2rem;
-  width: min(500px, 92vw);
+  width: min(700px, 94vw);
+  max-height: 94vh;
+  overflow-y: auto;
   box-shadow: var(--shadow);
 }
 

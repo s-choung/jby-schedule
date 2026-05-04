@@ -178,6 +178,20 @@ function bindEvents() {
       syncEditor();
       render();
       renderClockEditor(blockId);
+    }, null, (startMin, endMin) => {
+      const newBlock = createBlock({
+        area: 'schedule',
+        day: clockDayIndex,
+        daySpan: 1,
+        startMinutes: startMin,
+        endMinutes: endMin,
+      });
+      state = { ...state, blocks: [...state.blocks, snapScheduleBlockToGrid(newBlock, boundsForArea('schedule'))] };
+      selectedId = newBlock.id;
+      render();
+      scheduleSave();
+      renderClock();
+      renderClockEditor(newBlock.id);
     });
     clockContainer.append(svg);
 

@@ -1,7 +1,7 @@
 const TOTAL_MINUTES = 1440;
-const CLOCK_RADIUS = 180;
-const INNER_RADIUS = 20;
-const CENTER = CLOCK_RADIUS + 24;
+const CLOCK_RADIUS = 260;
+const INNER_RADIUS = 24;
+const CENTER = CLOCK_RADIUS + 30;
 const SVG_SIZE = CENTER * 2;
 
 function minutesToAngle(minutes) {
@@ -44,8 +44,18 @@ function fmtTime(m) {
 
 let selectedClockBlockId = null;
 let onUpdateCallback = null;
+let onAddBlockCallback = null;
 
-function buildClockSVG(blocks, onBlockClick, onUpdate) {
+function xyToMinutes(x, y) {
+  const dx = x - CENTER;
+  const dy = y - CENTER;
+  let angle = Math.atan2(dy, dx) * 180 / Math.PI + 90;
+  if (angle < 0) angle += 360;
+  return Math.round((angle / 360) * TOTAL_MINUTES / 30) * 30;
+}
+
+function buildClockSVG(blocks, onBlockClick, onUpdate, onAddBlock) {
+  onAddBlockCallback = onAddBlock;
   onUpdateCallback = onUpdate;
   const ns = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(ns, 'svg');
@@ -55,7 +65,7 @@ function buildClockSVG(blocks, onBlockClick, onUpdate) {
   svg.style.maxWidth = '420px';
   svg.style.maxHeight = '420px';
 
-  // background circle
+  // background circle — click to add block
   const bg = document.createElementNS(ns, 'circle');
   bg.setAttribute('cx', CENTER);
   bg.setAttribute('cy', CENTER);
@@ -63,6 +73,21 @@ function buildClockSVG(blocks, onBlockClick, onUpdate) {
   bg.setAttribute('fill', '#f5f3eb');
   bg.setAttribute('stroke', '#1f2937');
   bg.setAttribute('stroke-width', '2.5');
+  bg.style.cursor = 'crosshair';
+  bg.addEventListener('click', (e) => {
+    if (!onAddBlockCallback) return;
+    const rect = svg.getBoundingClientRect();
+    const scale = SVG_SIZE / rect.width;
+    const x = (e.clientX - rect.left) * scale;
+    const y = (e.clientY - rect.top) * scale;
+    const dx = x - CENTER;
+    const dy = y - CENTER;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < INNER_RADIUS || dist > CLOCK_RADIUS) return;
+    const startMin = xyToMinutes(x, y);
+    const endMin = Math.min(startMin + 60, TOTAL_MINUTES);
+    onAddBlockCallback(startMin, endMin);
+  });
   svg.append(bg);
 
   // hour grid lines (light)
@@ -139,18 +164,17 @@ function buildClockSVG(blocks, onBlockClick, onUpdate) {
     }
   });
 
-  // hour labels (on top of slices)
+  // hour labels (on top of slices) — all 24 hours
   for (let h = 0; h < 24; h++) {
-    if (h % 3 !== 0) continue;
     const angle = minutesToAngle(h * 60);
     const isMajor = h % 6 === 0;
-    const labelPos = polarToXY(angle, CLOCK_RADIUS + 16);
+    const labelPos = polarToXY(angle, CLOCK_RADIUS + 18);
     const text = document.createElementNS(ns, 'text');
     text.setAttribute('x', labelPos.x);
     text.setAttribute('y', labelPos.y);
     text.setAttribute('text-anchor', 'middle');
     text.setAttribute('dominant-baseline', 'central');
-    text.setAttribute('font-size', isMajor ? '12' : '9');
+    text.setAttribute('font-size', isMajor ? '13' : '10');
     text.setAttribute('font-weight', isMajor ? '900' : '600');
     text.setAttribute('fill', '#1f2937');
     text.textContent = hourLabel(h);
