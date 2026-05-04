@@ -19,6 +19,7 @@ import {
 } from './scheduler-core.js';
 import { initAuth, getUser, setAuthChangeCallback, signOut, renderAuthModal, removeAuthModal } from './auth.js';
 import { saveToSupabase, loadFromSupabase, loadPreviousWeek } from './supabase-storage.js';
+import { buildClockSVG, buildClockEditor } from './daily-clock.js';
 
 const STORAGE_PREFIX = 'jby-schedule:';
 const SAVE_DEBOUNCE_MS = 250;
@@ -153,6 +154,64 @@ function bindEvents() {
   const loadPrevBtn = document.querySelector('#loadPrevWeekBtn');
   if (loadPrevBtn) loadPrevBtn.addEventListener('click', loadPreviousWeekData);
 
+  const dailyClockBtn = document.querySelector('#dailyClockBtn');
+  const clockOverlay = document.querySelector('#dailyClockOverlay');
+  const clockContainer = document.querySelector('#clockContainer');
+  const clockDayTitle = document.querySelector('#clockDayTitle');
+  const clockPrevDay = document.querySelector('#clockPrevDay');
+  const clockNextDay = document.querySelector('#clockNextDay');
+  const clockCloseBtn = document.querySelector('#clockCloseBtn');
+
+  let clockDayIndex = new Date().getDay();
+  clockDayIndex = clockDayIndex === 0 ? 6 : clockDayIndex - 1;
+
+  function renderClock() {
+    const days = getWeekDays(state.selectedDate);
+    const day = days[clockDayIndex];
+    clockDayTitle.textContent = `${day.dateLabel} (${day.weekday})`;
+    const dayBlocks = state.blocks.filter(
+      (b) => b.area === 'schedule' && b.day <= clockDayIndex && b.day + (b.daySpan || 1) > clockDayIndex
+    );
+    clockContainer.innerHTML = '';
+    const svg = buildClockSVG(dayBlocks, (blockId) => {
+      selectedId = blockId;
+      syncEditor();
+      render();
+      renderClockEditor(blockId);
+    });
+    clockContainer.append(svg);
+
+    const editorWrap = document.querySelector('.clock-editor-wrap');
+    if (editorWrap) editorWrap.innerHTML = '';
+  }
+
+  function renderClockEditor(blockId) {
+    let editorWrap = document.querySelector('.clock-editor-wrap');
+    if (!editorWrap) {
+      editorWrap = document.createElement('div');
+      editorWrap.className = 'clock-editor-wrap';
+      clockContainer.parentElement.append(editorWrap);
+    }
+    const block = findBlock(blockId);
+    editorWrap.innerHTML = '';
+    editorWrap.append(buildClockEditor(block, (id, patch) => {
+      updateBlock(id, patch);
+      renderClock();
+      renderClockEditor(id);
+    }));
+  }
+
+  if (dailyClockBtn) {
+    dailyClockBtn.addEventListener('click', () => {
+      clockOverlay.style.display = '';
+      renderClock();
+    });
+  }
+  if (clockCloseBtn) clockCloseBtn.addEventListener('click', () => { clockOverlay.style.display = 'none'; });
+  if (clockPrevDay) clockPrevDay.addEventListener('click', () => { clockDayIndex = (clockDayIndex + 6) % 7; renderClock(); });
+  if (clockNextDay) clockNextDay.addEventListener('click', () => { clockDayIndex = (clockDayIndex + 1) % 7; renderClock(); });
+  clockOverlay?.addEventListener('click', (e) => { if (e.target === clockOverlay) clockOverlay.style.display = 'none'; });
+
   els.scheduleBoard.addEventListener('dblclick', (event) => {
     if (event.target.closest('.block-card')) return;
     const rect = els.scheduleBoard.getBoundingClientRect();
@@ -244,7 +303,9 @@ function createBlockElement(block) {
   card.style.borderColor = block.borderColor;
   card.style.borderStyle = block.borderStyle;
   card.style.borderRadius = `${block.radius}px`;
+  const desc = card.querySelector('.block-desc');
   title.textContent = block.title;
+  desc.textContent = block.description || '';
   meta.textContent = block.area === 'schedule' ? blockTimeText(block) : '';
   addResizeHandles(card);
 
@@ -270,7 +331,102 @@ function createBlockElement(block) {
     const nextTitle = title.textContent.trim() || '새 일정';
     updateBlock(block.id, { title: nextTitle });
   });
+  desc.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      desc.blur();
+    }
+    event.stopPropagation();
+  });
+  desc.addEventListener('blur', () => {
+    updateBlock(block.id, { description: desc.textContent.trim() });
+  });
+  card.addEventListener('contextmenu', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    selectedId = block.id;
+    render();
+    showContextMenu(event.clientX, event.clientY, block.id);
+  });
   return card;
+}
+
+const contextMenu = document.querySelector('#blockContextMenu');
+let contextTargetId = null;
+
+function showContextMenu(x, y, blockId) {
+  contextTargetId = blockId;
+  const block = findBlock(blockId);
+  contextMenu.querySelector('[data-action="edit-desc"]').textContent =
+    block?.description ? '설명 수정' : '설명 추가';
+  contextMenu.style.display = '';
+  contextMenu.style.left = `${Math.min(x, window.innerWidth - 180)}px`;
+  contextMenu.style.top = `${Math.min(y, window.innerHeight - 200)}px`;
+}
+
+function hideContextMenu() {
+  contextMenu.style.display = 'none';
+  contextTargetId = null;
+}
+
+document.addEventListener('click', hideContextMenu);
+document.addEventListener('contextmenu', (e) => {
+  if (!e.target.closest('.block-card')) hideContextMenu();
+});
+
+contextMenu.addEventListener('click', async (e) => {
+  const action = e.target.closest('[data-action]')?.dataset.action;
+  if (!action || !contextTargetId) return;
+  const block = findBlock(contextTargetId);
+  if (!block) { hideContextMenu(); return; }
+
+  const card = document.querySelector(`.block-card[data-id="${contextTargetId}"]`);
+
+  if (action === 'edit-title' && card) {
+    focusBlockTitle(card);
+  } else if (action === 'edit-desc' && card) {
+    const desc = card.querySelector('.block-desc');
+    if (!desc.textContent) desc.textContent = ' ';
+    desc.focus();
+    const range = document.createRange();
+    range.selectNodeContents(desc);
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(range);
+  } else if (action === 'duplicate') {
+    let clone = cloneBlockForPaste(block, { offset: 18 });
+    if (clone.area === 'schedule') clone = snapScheduleBlock(clone);
+    else clone = normalizeBlock(clone, boundsForArea('palette'));
+    state = { ...state, blocks: [...state.blocks, clone] };
+    selectedId = clone.id;
+    render();
+    scheduleSave();
+  } else if (action === 'repeat') {
+    await repeatBlockWeekly(block, 4);
+  } else if (action === 'delete') {
+    deleteSelectedBlock();
+  }
+  hideContextMenu();
+});
+
+async function repeatBlockWeekly(block, weeks) {
+  if (!getUser() || block.area !== 'schedule') {
+    setSaveStatus('스케줄 블록만 반복 가능합니다');
+    return;
+  }
+  setSaveStatus('반복 저장 중...');
+  const currentWeekStart = toISODate(getWeekStart(state.selectedDate));
+  for (let w = 1; w <= weeks; w++) {
+    const futureWeekStart = toISODate(addDays(currentWeekStart, 7 * w));
+    let existing = await loadFromSupabase(futureWeekStart);
+    if (!existing) {
+      existing = JSON.parse(serializeState());
+      existing.blocks = [];
+    }
+    const clone = { ...block, id: 'b_' + Math.random().toString(36).slice(2, 10) };
+    existing.blocks = [...(existing.blocks || []), clone];
+    await saveToSupabase(futureWeekStart, existing);
+  }
+  setSaveStatus(`${weeks}주간 반복 저장됨`);
 }
 
 function addResizeHandles(card) {

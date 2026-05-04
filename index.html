@@ -110,6 +110,7 @@
             </label>
             <button id="todayBtn" class="ghost-btn" type="button">오늘</button>
             <button id="nextWeekBtn" class="ghost-btn" type="button">다음 주</button>
+            <button id="dailyClockBtn" class="primary-btn" type="button">Daily</button>
           </div>
           <div class="save-controls" aria-label="저장 상태">
             <button id="loadPrevWeekBtn" class="ghost-btn" type="button">이전 주 불러오기</button>
@@ -139,9 +140,30 @@
     <template id="blockTemplate">
       <article class="block-card" tabindex="0">
         <div class="block-title" contenteditable="true" spellcheck="false"></div>
+        <div class="block-desc" contenteditable="true" spellcheck="false"></div>
         <div class="block-meta"></div>
       </article>
     </template>
+
+    <div id="dailyClockOverlay" class="clock-overlay" style="display:none">
+      <div class="clock-modal">
+        <div class="clock-header">
+          <button id="clockPrevDay" class="ghost-btn" type="button">전날</button>
+          <h2 id="clockDayTitle">월요일</h2>
+          <button id="clockNextDay" class="ghost-btn" type="button">다음날</button>
+          <button id="clockCloseBtn" class="ghost-btn" type="button" style="margin-left:auto">닫기</button>
+        </div>
+        <div id="clockContainer" class="clock-container"></div>
+      </div>
+    </div>
+
+    <div id="blockContextMenu" class="context-menu" style="display:none">
+      <button data-action="edit-title">이름 수정</button>
+      <button data-action="edit-desc">설명 추가/수정</button>
+      <button data-action="duplicate">복제</button>
+      <button data-action="repeat">매주 반복 (4주)</button>
+      <button data-action="delete" class="danger">삭제</button>
+    </div>
 
     <div id="authContainer"></div>
     <script type="module" src="./app.js"></script>

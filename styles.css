@@ -431,8 +431,10 @@ input[type="color"] {
   text-align: center;
   font-weight: 900;
   line-height: 1.25;
-  word-break: keep-all;
+  word-break: break-word;
+  overflow-wrap: break-word;
   white-space: pre-wrap;
+  overflow: hidden;
 }
 
 .block-title:focus {
@@ -655,6 +657,139 @@ input[type="color"] {
 .auth-toggle .ghost-btn {
   font-weight: 600;
   color: var(--ink);
+}
+
+/* Daily Clock Overlay */
+.clock-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 8000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+}
+
+.clock-modal {
+  background: var(--paper);
+  border: 2px solid var(--line);
+  border-radius: 20px;
+  padding: 1.5rem 2rem;
+  width: min(500px, 92vw);
+  box-shadow: var(--shadow);
+}
+
+.clock-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 1rem;
+}
+
+.clock-header h2 {
+  font-size: 1.1rem;
+  min-width: 120px;
+  text-align: center;
+}
+
+.clock-container {
+  display: flex;
+  justify-content: center;
+  padding: 0.5rem 0;
+}
+
+.clock-editor-wrap {
+  margin-top: 0.8rem;
+}
+
+.clock-editor {
+  background: rgba(255, 253, 247, 0.9);
+  border: 1.5px solid var(--grid-line);
+  border-radius: 12px;
+  padding: 0.8rem 1rem;
+}
+
+.clock-edit-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 0.5rem;
+}
+
+.clock-edit-row:last-child {
+  margin-bottom: 0;
+}
+
+.clock-edit-row label {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.clock-edit-row input {
+  padding: 0.4rem 0.5rem;
+  border: 1.5px solid var(--grid-line);
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+/* Context Menu */
+.context-menu {
+  position: fixed;
+  z-index: 10000;
+  background: var(--paper);
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  padding: 4px;
+  box-shadow: var(--shadow);
+  min-width: 160px;
+}
+
+.context-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.context-menu button:hover {
+  background: rgba(167, 211, 245, 0.3);
+}
+
+.context-menu button.danger {
+  color: #dc2626;
+}
+
+.context-menu button.danger:hover {
+  background: rgba(220, 38, 38, 0.1);
+}
+
+/* Block Description */
+.block-desc {
+  font-size: 0.65rem;
+  opacity: 0.7;
+  line-height: 1.2;
+  max-height: 2.4em;
+  overflow: hidden;
+  word-break: keep-all;
+  white-space: pre-wrap;
+}
+
+.block-desc:empty {
+  display: none;
 }
 
 .auth-sep {
