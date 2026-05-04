@@ -72,7 +72,7 @@ export function timeLabel(minutes) {
   return mins === 0 ? `${hours}:00` : `${hours}:${String(mins).padStart(2, '0')}`;
 }
 
-export function getHourMarks(startHour = 6, endHour = 24) {
+export function getHourMarks(startHour = 0, endHour = 24) {
   return Array.from({ length: endHour - startHour + 1 }, (_, index) => startHour + index);
 }
 

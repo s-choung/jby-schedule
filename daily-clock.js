@@ -79,9 +79,13 @@ function buildClockSVG(blocks, onBlockClick, onUpdate, onAddBlock) {
   let previewArc = null;
 
   function getSvgCoords(e) {
-    const rect = svg.getBoundingClientRect();
-    const scale = SVG_SIZE / rect.width;
-    return { x: (e.clientX - rect.left) * scale, y: (e.clientY - rect.top) * scale };
+    const pt = svg.createSVGPoint();
+    pt.x = e.clientX;
+    pt.y = e.clientY;
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return { x: CENTER, y: CENTER };
+    const svgPt = pt.matrixTransform(ctm.inverse());
+    return { x: svgPt.x, y: svgPt.y };
   }
 
   function isInRing(x, y) {
