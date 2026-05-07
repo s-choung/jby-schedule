@@ -29,10 +29,6 @@ function piePath(startMin, endMin, outerR) {
 }
 
 function hourLabel(h) {
-  if (h === 0) return '0시';
-  if (h === 6) return '6시';
-  if (h === 12) return '정오';
-  if (h === 18) return '18시';
   return `${h}`;
 }
 
