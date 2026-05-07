@@ -12,6 +12,7 @@ import {
   normalizeBlock,
   patchBlock,
   removeBlock,
+  SCHEDULE_COLUMN_INSET,
   snapScheduleBlockToGrid,
   timeLabel,
   toISODate,
@@ -23,7 +24,7 @@ import { buildClockSVG, buildClockEditor } from './daily-clock.js';
 
 const STORAGE_PREFIX = 'jby-schedule:';
 const SAVE_DEBOUNCE_MS = 250;
-const BOARD_HEIGHT = 900;
+const BOARD_HEIGHT = 940;
 const resizeDirections = ['n', 'e', 's', 'w', 'ne', 'se', 'sw', 'nw'];
 
 const PRESETS = [
@@ -42,19 +43,11 @@ const PRESETS = [
 ];
 
 const els = {
-  addBlockBtn: document.querySelector('#addBlockBtn'),  // may be null
-  paletteCanvas: document.querySelector('#paletteCanvas'),
   presetList: document.querySelector('#presetList'),
   deleteBlockBtn: document.querySelector('#deleteBlockBtn'),
   titleInput: document.querySelector('#titleInput'),
   colorInput: document.querySelector('#colorInput'),
   textColorInput: document.querySelector('#textColorInput'),
-  borderColorInput: document.querySelector('#borderColorInput'),
-  radiusInput: document.querySelector('#radiusInput'),
-  patternInput: document.querySelector('#patternInput'),
-  borderStyleInput: document.querySelector('#borderStyleInput'),
-  widthInput: document.querySelector('#widthInput'),
-  heightInput: document.querySelector('#heightInput'),
   prevWeekBtn: document.querySelector('#prevWeekBtn'),
   nextWeekBtn: document.querySelector('#nextWeekBtn'),
   todayBtn: document.querySelector('#todayBtn'),
@@ -126,19 +119,20 @@ function init() {
 }
 
 function bindEvents() {
-  if (els.addBlockBtn) els.addBlockBtn.addEventListener('click', () => addBlockToPalette());
   els.deleteBlockBtn.addEventListener('click', deleteSelectedBlock);
 
   const editorToggle = document.querySelector('#editorToggle');
   const editorBody = document.querySelector('#editorBody');
   const editorArrow = document.querySelector('#editorArrow');
-  editorToggle.addEventListener('click', () => {
-    const hidden = editorBody.style.display === 'none';
-    editorBody.style.display = hidden ? '' : 'none';
-    editorArrow.textContent = hidden ? '▼' : '▶';
-  });
+  if (editorToggle) {
+    editorToggle.addEventListener('click', () => {
+      const hidden = editorBody.style.display === 'none';
+      editorBody.style.display = hidden ? '' : 'none';
+      editorArrow.textContent = hidden ? '▼' : '▶';
+    });
+  }
 
-  for (const input of [els.titleInput, els.colorInput, els.textColorInput, els.borderColorInput, els.radiusInput, els.patternInput, els.borderStyleInput, els.widthInput, els.heightInput]) {
+  for (const input of [els.titleInput, els.colorInput, els.textColorInput]) {
     input.addEventListener('input', applyEditorPatch);
   }
 
@@ -248,6 +242,12 @@ function bindEvents() {
   window.addEventListener('beforeunload', () => {
     persistLocalNow();
   });
+  window.addEventListener('online', async () => {
+    if (getUser()) {
+      await persistSupabaseNow();
+      setSaveStatus('온라인 복귀 · 서버 동기화됨');
+    }
+  });
 }
 
 function renderPresets() {
@@ -260,7 +260,19 @@ function renderPresets() {
     button.style.backgroundColor = preset.color;
     button.style.borderColor = preset.borderColor ?? '#111827';
     button.addEventListener('click', () => {
-      addBlockToPalette({ ...preset, x: 24 + (index % 3) * 164, y: 78 + Math.floor(index / 3) * 104 });
+      const block = createBlock({
+        ...preset,
+        area: 'schedule',
+        x: 0,
+        y: minutesToY(480, BOARD_HEIGHT),
+        width: 132,
+        height: 50,
+      });
+      const snapped = snapScheduleBlock(block);
+      state = { ...state, blocks: [...state.blocks, snapped] };
+      selectedId = snapped.id;
+      render();
+      scheduleSave();
     });
     els.presetList.append(button);
   });
@@ -272,7 +284,8 @@ function renderTimeRail() {
     const label = document.createElement('div');
     label.className = 'time-label';
     label.textContent = hour;
-    label.style.top = `${minutesToY(hour * 60, BOARD_HEIGHT)}px`;
+    const rawY = minutesToY(hour * 60, BOARD_HEIGHT);
+    label.style.top = `${Math.max(10, Math.min(rawY, BOARD_HEIGHT - 10))}px`;
     els.timeRail.append(label);
   }
 }
@@ -306,12 +319,21 @@ function renderDayHeader(weekDays) {
 }
 
 function renderBlocks() {
-  els.paletteCanvas.querySelectorAll('.block-card').forEach((node) => node.remove());
   els.scheduleLayer.innerHTML = '';
+  const bounds = boundsForArea('schedule');
+  const dayWidth = bounds.width / 7;
+  const inset = SCHEDULE_COLUMN_INSET;
   for (const block of state.blocks) {
-    const parent = block.area === 'schedule' ? els.scheduleLayer : els.paletteCanvas;
-    const card = createBlockElement(block);
-    parent.append(card);
+    if (block.area !== 'schedule') continue;
+    const displayBlock = block.startMinutes != null ? {
+      ...block,
+      x: block.day * dayWidth + inset,
+      y: minutesToY(block.startMinutes, bounds.height),
+      width: (block.daySpan || 1) * dayWidth - inset * 2,
+      height: Math.max(28, minutesToY(block.endMinutes, bounds.height) - minutesToY(block.startMinutes, bounds.height)),
+    } : block;
+    const card = createBlockElement(displayBlock);
+    els.scheduleLayer.append(card);
   }
 }
 
@@ -424,8 +446,8 @@ contextMenu.addEventListener('click', async (e) => {
     window.getSelection().addRange(range);
   } else if (action === 'duplicate') {
     let clone = cloneBlockForPaste(block, { offset: 18 });
-    if (clone.area === 'schedule') clone = snapScheduleBlock(clone);
-    else clone = normalizeBlock(clone, boundsForArea('palette'));
+    clone.area = 'schedule';
+    clone = snapScheduleBlock(clone);
     state = { ...state, blocks: [...state.blocks, clone] };
     selectedId = clone.id;
     render();
@@ -517,11 +539,8 @@ function copySelectedBlock() {
 function pasteCopiedBlock() {
   if (!copiedBlock) return;
   let clone = cloneBlockForPaste(copiedBlock, { offset: 18 });
-  if (clone.area === 'schedule') {
-    clone = snapScheduleBlock(clone);
-  } else {
-    clone = normalizeBlock(clone, boundsForArea('palette'));
-  }
+  clone.area = 'schedule';
+  clone = snapScheduleBlock(clone);
   state = { ...state, blocks: [...state.blocks, clone] };
   selectedId = clone.id;
   render();
@@ -563,7 +582,12 @@ function onBlockPointerDown(event, block) {
   event.preventDefault();
   const card = event.currentTarget;
   const rect = card.getBoundingClientRect();
-  const mode = handle ? 'resize' : 'drag';
+  const edgeThreshold = 10;
+  const relX = event.clientX - rect.left;
+  const relY = event.clientY - rect.top;
+  const nearEdge = relX <= edgeThreshold || relX >= rect.width - edgeThreshold ||
+                   relY <= edgeThreshold || relY >= rect.height - edgeThreshold;
+  const mode = (handle && nearEdge) ? 'resize' : 'drag';
   const grabOffsetX = event.clientX - rect.left;
   const grabOffsetY = event.clientY - rect.top;
 
@@ -633,22 +657,15 @@ function onPointerUp(event) {
     return;
   }
 
-  const nextArea = areaFromPoint(event.clientX, event.clientY) ?? interaction.originArea;
-  const point = pointInArea(event.clientX, event.clientY, nextArea);
-  const bounds = boundsForArea(nextArea);
+  const point = pointInArea(event.clientX, event.clientY);
   interaction.liveElement.remove();
   let draft = {
     ...block,
-    area: nextArea,
+    area: 'schedule',
     x: point.x - interaction.grabOffsetX,
     y: point.y - interaction.grabOffsetY,
   };
-
-  if (nextArea === 'schedule') {
-    draft = snapScheduleBlock(draft);
-  } else {
-    draft = normalizeBlock(draft, bounds);
-  }
+  draft = snapScheduleBlock(draft);
   updateBlock(interaction.id, draft);
 }
 
@@ -697,30 +714,21 @@ function withTimePatch(block, patch) {
 
 function areaFromPoint(clientX, clientY) {
   if (containsPoint(els.scheduleBoard.getBoundingClientRect(), clientX, clientY)) return 'schedule';
-  if (containsPoint(els.paletteCanvas.getBoundingClientRect(), clientX, clientY)) return 'palette';
   return null;
 }
 
-function pointInArea(clientX, clientY, area) {
-  const rect = (area === 'schedule' ? els.scheduleBoard : els.paletteCanvas).getBoundingClientRect();
+function pointInArea(clientX, clientY) {
+  const rect = els.scheduleBoard.getBoundingClientRect();
   return { x: clientX - rect.left, y: clientY - rect.top };
 }
 
-function boundsForArea(area) {
-  const rect = (area === 'schedule' ? els.scheduleBoard : els.paletteCanvas).getBoundingClientRect();
+function boundsForArea() {
+  const rect = els.scheduleBoard.getBoundingClientRect();
   return { width: rect.width, height: rect.height || BOARD_HEIGHT };
 }
 
 function containsPoint(rect, x, y) {
   return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
-}
-
-function addBlockToPalette(overrides = {}) {
-  const block = createBlock({ ...overrides, area: 'palette' });
-  state = { ...state, blocks: [...state.blocks, normalizeBlock(block, boundsForArea('palette'))] };
-  selectedId = block.id;
-  render();
-  scheduleSave();
 }
 
 function addBlockToSchedule(x, y) {
@@ -757,35 +765,24 @@ function updateBlock(id, patch) {
   scheduleSave();
 }
 
-function applyEditorPatch(event) {
+function applyEditorPatch() {
   if (!selectedId) return;
   const selected = findBlock(selectedId);
   if (!selected) return;
-  const bounds = selected.area === 'schedule' ? boundsForArea('schedule') : null;
-  const dayWidth = bounds ? bounds.width / 7 : 0;
-  const widthValue = selected.area === 'schedule'
-    ? clamp(Number(els.widthInput.value), 1, 7) * dayWidth
-    : Number(els.widthInput.value);
-  const patch = {
+  updateBlock(selectedId, {
     title: els.titleInput.value,
     color: els.colorInput.value,
     textColor: els.textColorInput.value,
-    borderColor: els.borderColorInput.value,
-    radius: Number(els.radiusInput.value),
-    pattern: els.patternInput.value,
-    borderStyle: els.borderStyleInput.value,
-    width: widthValue,
-    height: Number(els.heightInput.value),
-  };
-  updateBlock(selectedId, selected.area === 'schedule' ? withTimePatch(selected, patch) : patch);
+  });
 }
 
 function syncEditor() {
   const selected = findBlock(selectedId);
   const disabled = !selected;
-  for (const input of [els.titleInput, els.colorInput, els.textColorInput, els.borderColorInput, els.radiusInput, els.patternInput, els.borderStyleInput, els.widthInput, els.heightInput, els.deleteBlockBtn]) {
-    input.disabled = disabled;
-  }
+  els.titleInput.disabled = disabled;
+  els.colorInput.disabled = disabled;
+  els.textColorInput.disabled = disabled;
+  els.deleteBlockBtn.disabled = disabled;
   if (!selected) {
     els.titleInput.value = '';
     return;
@@ -793,22 +790,6 @@ function syncEditor() {
   if (document.activeElement !== els.titleInput) els.titleInput.value = selected.title;
   els.colorInput.value = selected.color;
   els.textColorInput.value = selected.textColor;
-  els.borderColorInput.value = selected.borderColor;
-  els.radiusInput.value = selected.radius;
-  els.patternInput.value = selected.pattern;
-  els.borderStyleInput.value = selected.borderStyle;
-  if (selected.area === 'schedule') {
-    els.widthInput.min = '1';
-    els.widthInput.max = '7';
-    els.widthInput.step = '1';
-    els.widthInput.value = selected.daySpan ?? 1;
-  } else {
-    els.widthInput.min = '56';
-    els.widthInput.removeAttribute('max');
-    els.widthInput.step = '4';
-    els.widthInput.value = Math.round(selected.width);
-  }
-  els.heightInput.value = Math.round(selected.height);
 }
 
 async function changeDate(input) {
@@ -835,17 +816,24 @@ function loadStateForDate(isoDate) {
 
 async function loadStateForDateAsync(isoDate) {
   const weekStart = toISODate(getWeekStart(isoDate));
+  const local = loadStateForDate(isoDate);
 
   if (getUser()) {
     const remote = await loadFromSupabase(weekStart);
     if (remote) {
-      const loaded = normalizeState({ ...remote, selectedDate: isoDate });
-      localStorage.setItem(`${STORAGE_PREFIX}${isoDate}`, JSON.stringify(loaded));
-      return loaded;
+      const remoteState = normalizeState({ ...remote, selectedDate: isoDate });
+      const localTime = new Date(local.updatedAt || 0).getTime();
+      const remoteTime = new Date(remoteState.updatedAt || 0).getTime();
+      if (localTime > remoteTime && local.blocks.length > 0) {
+        saveToSupabase(weekStart, JSON.parse(JSON.stringify(local)));
+        return local;
+      }
+      localStorage.setItem(`${STORAGE_PREFIX}${isoDate}`, JSON.stringify(remoteState));
+      return remoteState;
     }
   }
 
-  return loadStateForDate(isoDate);
+  return local;
 }
 
 async function loadPreviousWeekData() {

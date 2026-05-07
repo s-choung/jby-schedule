@@ -14,7 +14,7 @@
 :root {
   --paper:#fffdf7; --ink:#171717; --muted:#6b7280; --line:#1f2937;
   --grid-line:rgba(31,41,55,.16); --soft-blue:#a7d3f5; --soft-pink:#f8c6c6;
-  --soft-green:#c5f4c7; --soft-yellow:#ffefa7; --board-h:900px;
+  --soft-green:#c5f4c7; --soft-yellow:#ffefa7; --board-h:940px;
   --rail-w:36px; --bar-h:56px; --safe-b:env(safe-area-inset-bottom,0px);
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -37,7 +37,7 @@ button:active{transform:translate(1px,1px);box-shadow:1px 1px 0 rgba(17,24,39,.9
 /* ── top bar ── */
 .top-bar{
   flex-shrink:0;padding:8px 12px;
-  background:rgba(255,255,255,.85);backdrop-filter:blur(8px);
+  background:rgba(255,255,255,.96);
   border-bottom:2px solid var(--line);z-index:60;
 }
 .brand-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
@@ -143,7 +143,7 @@ button:active{transform:translate(1px,1px);box-shadow:1px 1px 0 rgba(17,24,39,.9
   flex-shrink:0;display:flex;align-items:center;justify-content:space-around;
   gap:8px;padding:6px 10px;
   padding-bottom:max(6px,var(--safe-b));
-  background:rgba(255,255,255,.9);backdrop-filter:blur(8px);
+  background:rgba(255,255,255,.96);
   border-top:2px solid var(--line);z-index:60;
 }
 .bottom-bar button{flex:1;max-width:120px;font-size:.78rem;min-height:38px}
@@ -287,6 +287,7 @@ body.dragging .board-scroll{overflow:hidden!important}
       <p class="eyebrow">todos</p>
       <h1>주간 스케줄</h1>
     </div>
+    <a href="./index.html" style="text-decoration:none;font-size:.72rem;min-height:28px;padding:4px 10px;border:2px solid var(--line);border-radius:14px;background:#fff;font-weight:700;display:inline-flex;align-items:center;box-shadow:2px 3px 0 rgba(17,24,39,.9)">PC 버전</a>
     <button id="logoutBtn" style="display:none;font-size:.72rem;min-height:28px;padding:0 8px">로그아웃</button>
     <p id="saveStatus" class="save-status">준비됨</p>
   </div>
@@ -550,7 +551,7 @@ async function sbLoadPrev(weekStartISO) {
 // Core
 // ═══════════════════════════════════════════════════════
 const WEEKDAYS = ['월','화','수','목','금','토','일'];
-const START_MIN = 360, END_MIN = 1440, BH = 900;
+const START_MIN = 360, END_MIN = 1440, BH = 940;
 const INSET = 4, STORAGE = 'jby-schedule:';
 
 function clamp(v, lo, hi) { return Math.min(Math.max(Number(v), lo), hi); }
@@ -726,12 +727,19 @@ function scheduleSave() {
 
 async function loadStateAsync(iso) {
   const ws = toISO(weekStart(iso));
+  const local = loadState(iso);
   if (currentUser) {
     const remote = await sbLoad(ws);
     if (remote) {
-      const loaded = normalizeState({ ...remote, selectedDate: iso });
-      localStorage.setItem(STORAGE + iso, JSON.stringify(loaded));
-      return loaded;
+      const remoteState = normalizeState({ ...remote, selectedDate: iso });
+      const localTime = new Date(local.updatedAt || 0).getTime();
+      const remoteTime = new Date(remoteState.updatedAt || 0).getTime();
+      if (localTime > remoteTime && local.blocks.length > 0) {
+        sbSave(ws, JSON.parse(JSON.stringify(local)));
+        return local;
+      }
+      localStorage.setItem(STORAGE + iso, JSON.stringify(remoteState));
+      return remoteState;
     }
     const prev = await sbLoadPrev(ws);
     if (prev) {
@@ -739,7 +747,7 @@ async function loadStateAsync(iso) {
       return normalizeState({ ...prev, selectedDate: iso, weekStart: ws });
     }
   }
-  return loadState(iso);
+  return local;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -773,7 +781,8 @@ function renderTimeRail() {
     const lbl = document.createElement('div');
     lbl.className = 'time-label';
     lbl.textContent = h;
-    lbl.style.top = minToY(h * 60, BH) + 'px';
+    const rawY = minToY(h * 60, BH);
+    lbl.style.top = Math.max(10, Math.min(rawY, BH - 10)) + 'px';
     el.timeRail.append(lbl);
   });
 }
@@ -850,8 +859,14 @@ function onBlockDown(e, block) {
   const bw = boardWidth();
   const px = block.area === 'schedule' ? blockPixels(block, bw, BH) : block;
 
+  const edgeThreshold = 10;
+  const relX = e.clientX - rect.left;
+  const relY = e.clientY - rect.top;
+  const nearEdge = relX <= edgeThreshold || relX >= rect.width - edgeThreshold ||
+                   relY <= edgeThreshold || relY >= rect.height - edgeThreshold;
+
   activeInteraction = {
-    mode: handle ? 'resize' : 'drag',
+    mode: (handle && nearEdge) ? 'resize' : 'drag',
     dir: handle?.dataset.dir ?? null,
     id: block.id,
     area: block.area,
@@ -1217,6 +1232,15 @@ requestAnimationFrame(() => {
     renderAuthModal();
   });
 })();
+
+window.addEventListener('online', () => {
+  if (currentUser) {
+    const ws = toISO(weekStart(state.selectedDate));
+    sbSave(ws, JSON.parse(serialize())).then(() => {
+      el.saveStatus.textContent = '온라인 복귀 · 서버 동기화됨';
+    });
+  }
+});
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
 </script>

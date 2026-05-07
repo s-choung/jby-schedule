@@ -153,7 +153,7 @@ function buildClockSVG(blocks, onBlockClick, onUpdate, onAddBlock) {
     text.setAttribute('y', labelPos.y);
     text.setAttribute('text-anchor', 'middle');
     text.setAttribute('dominant-baseline', 'central');
-    text.setAttribute('font-size', isMajor ? '22' : '16');
+    text.setAttribute('font-size', isMajor ? '44' : '32');
     text.setAttribute('font-weight', isMajor ? '900' : '700');
     text.setAttribute('fill', '#1f2937');
     text.textContent = hourLabel(h);

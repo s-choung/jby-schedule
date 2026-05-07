@@ -1,7 +1,7 @@
 export const WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일'];
 export const SCHEDULE_START_MINUTES = 0 * 60;
 export const SCHEDULE_END_MINUTES = 24 * 60;
-export const DEFAULT_BOARD_HEIGHT = 900;
+export const DEFAULT_BOARD_HEIGHT = 940;
 export const MIN_BLOCK_WIDTH = 56;
 export const MIN_BLOCK_HEIGHT = 28;
 export const MAX_DAY_SPAN = 7;
