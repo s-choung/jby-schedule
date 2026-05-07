@@ -1,7 +1,7 @@
 const TOTAL_MINUTES = 1440;
 const CLOCK_RADIUS = 390;
 const INNER_RADIUS = 30;
-const CENTER = CLOCK_RADIUS + 36;
+const CENTER = CLOCK_RADIUS + 60;
 const SVG_SIZE = CENTER * 2;
 
 function minutesToAngle(minutes) {
@@ -147,7 +147,7 @@ function buildClockSVG(blocks, onBlockClick, onUpdate, onAddBlock) {
   for (let h = 0; h < 24; h++) {
     const angle = minutesToAngle(h * 60);
     const isMajor = h % 6 === 0;
-    const labelPos = polarToXY(angle, CLOCK_RADIUS + 18);
+    const labelPos = polarToXY(angle, CLOCK_RADIUS + 38);
     const text = document.createElementNS(ns, 'text');
     text.setAttribute('x', labelPos.x);
     text.setAttribute('y', labelPos.y);
